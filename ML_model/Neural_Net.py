@@ -4,7 +4,10 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
+import matplotlib as mpl
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.ticker import MaxNLocator
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import numpy as np
 
 # ==============================
@@ -13,8 +16,8 @@ import numpy as np
 
 file_path = "data/3-17_week_training.csv"
 separate_test_file = True
-tf_path = "data/3-17_week_training.csv" # Training file path
-num_epochs = 10
+tf_path = "data\COMBINED_SET3-14.csv" # Test file path
+num_epochs = 20
 
 label_mapping = { 'AIR': 0, 'LIGHT': 1, 'MEDIUM': 2, 'DARK': 3 }
 
@@ -229,8 +232,6 @@ else:
     all_labels_named = all_labels
 #print(all_labels_named)
 
-from sklearn.metrics import ConfusionMatrixDisplay
-
 # ==============================
 # Confusion Matrix
 # ==============================
@@ -274,13 +275,58 @@ for idx in misclassified_idxs:
 print(f"\nTotal Misclassified Samples: {len(misclassified_idxs)} / {len(equal_labels)}")
 
 
+plt.rcParams.update({
+    # Thicken grid lines
+    'grid.linewidth': 2,
+    # Remove the axes border by setting its width to 0
+    'axes.linewidth': 0,
+    'axes.labelpad': 12,
+    'axes.titlepad': 12,
+    # Font: choose a round‑looking sans‑serif and bump up the size
+    'font.family': 'sans-serif',
+    'font.sans-serif': ['Tahoma', 'DejaVu Sans'],
+    'font.size': 18,          # base font size
+    'font.weight': '500',
+    # Make tick marks thicker too
+    'xtick.major.width': 0,
+    'ytick.major.width': 0,
+    'xtick.major.size': 0,
+    'ytick.major.size': 0,
+})
+
+
+equal_labels = [label.title() for label in equal_labels]
+equal_preds = [label.title() for label in equal_preds]
+actual_label_names = [label.title() for label in actual_label_names]
 # Generate confusion matrix
 conf_matrix = confusion_matrix(equal_labels, equal_preds, labels=actual_label_names)
 
 # Create and display confusion matrix
 disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=actual_label_names)
-fig, ax = plt.subplots(figsize=(7, 5))  # Set figure size
-disp.plot(ax=ax, cmap="Blues", values_format="d")  # "d" ensures integer values are displayed
+fig, ax = plt.subplots(figsize=(10, 7))  # Set figure size
+
+# creat color map
+
+# 2) grab the original cmap
+orig_cmap = mpl.cm.get_cmap("Greens")
+
+orig_cmap = LinearSegmentedColormap.from_list(
+    "GreyGreen", 
+    ["white", "darkolivegreen", "darkgreen"],       # start at grey, end at full green
+    N=256                          # number of discrete steps
+)
+# 3) subsection cmap to scale lower bound color and down upper bound color
+cust_cmap = LinearSegmentedColormap.from_list(
+    "Green_trunc",
+    orig_cmap(np.linspace(0.08, 0.75, 256))
+)
+
+disp.plot(ax=ax, cmap=cust_cmap, values_format="d",  colorbar=False)  # "d" ensures integer values are displayed
+cbar = fig.colorbar(disp.im_, ax=ax)
+cbar.ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+# limit number ticks for cbar
+cbar.locator = MaxNLocator(nbins=8, integer=True)
+cbar.update_ticks()
 
 # Customize axis labels
 ax.set_xlabel("Predicted Label")
@@ -289,5 +335,5 @@ ax.set_title("Confusion Matrix")
 
 plt.show()
 # fig.savefig("confusion_matrix_4k.svg")
-fig.savefig("confusion_matrix_4k.png", dpi=960)
+fig.savefig("confusion_matrix_4k.pdf", dpi=600)
 ...
