@@ -1,17 +1,27 @@
 #include <Arduino.h>
 #include <SD.h>
 #include "bme68xLibrary.h"
-#include "commMux.h"
+#include "commMux\commMux.h"
 #include <Esp.h>
 
 #define N_KIT_SENS 8
-#define SD_PIN_CS 10 // Chip Select pin for your SD interface
+#define SD_PIN_CS 33 // Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3, pin 33 on adafruit esp32 V2
 #define PANIC_LED LED_BUILTIN
 #define PANIC_DUR 5
 #define MEAS_DUR 5
 #define SAMPLE_NAME "MEDIUM"
 #define COMPLETE_READ 0xFF
 #define DEBUG true
+
+// Explicit pin defines for the Adafruit esp32 V2 board
+#define SDA       22
+#define SCL       20
+#define I2C_FREQ  400000
+#define MOSI      19
+#define MISO      21  
+#define SCK       5
+#define CS        33 // Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3, pin 33 on adafruit esp32 V2
+
 
 /* Declaration of variables */
 Bme68x bme[N_KIT_SENS];
@@ -100,9 +110,14 @@ void saveSensorData() {
 void setup(void) {
   if (DEBUG) Serial.begin(9600);
   delay(5000);  // Give time for Serial Monitor to connect
-
+  if (DEBUG) Serial.println("Initializing Setup!");
+  //yield();
   /* Initiate SPI communication (shared bus for sensor multiplexer) */
+  SPI.begin(SCK, MISO, MOSI, CS);
+  Wire.begin(SDA, SCL, I2C_FREQ);
+  //Wire.setTimeout(100);           // give it a finite ACK timeout (ms)
   commMuxBegin(Wire, SPI);
+  if (DEBUG) Serial.println("CommMux Began...");
   pinMode(PANIC_LED, OUTPUT);
   delay(100);
 
