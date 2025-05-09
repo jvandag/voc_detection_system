@@ -14,13 +14,17 @@
 #define DEBUG true
 
 // Explicit pin defines for the Adafruit esp32 V2 board
+// Pinouts for this board must be explicitly defined to work with platformio
 #define SDA       22
 #define SCL       20
 #define I2C_FREQ  400000
 #define MOSI      19
 #define MISO      21  
 #define SCK       5
-#define CS        33 // Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3, pin 33 on adafruit esp32 V2
+
+/*Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3,
+pin 33 on adafruit esp32 V2*/
+#define CS        33
 
 
 /* Declaration of variables */
@@ -61,7 +65,7 @@ static void setSensorHeaters() {
     // uint16_t tempProf[10] = {320, 100, 100, 100, 200, 200, 200, 320, 320, 320};
     // uint16_t mulProf[10] = {5, 2, 10, 30, 5, 5, 5, 5, 5, 5};
     uint16_t tempProf[8] = {320, 100, 100, 100, 200, 200, 200, 320};
-     uint16_t mulProf[8] = {5, 2, 10, 30, 5, 5, 5, 5};
+    uint16_t mulProf[8] = {5, 2, 10, 30, 5, 5, 5, 5};
 
     // Shared heater duration is leftover time after TPH measurement
     uint16_t sharedHeatrDur = MEAS_DUR - (bme[i].getMeasDur(BME68X_PARALLEL_MODE) / INT64_C(1000));
