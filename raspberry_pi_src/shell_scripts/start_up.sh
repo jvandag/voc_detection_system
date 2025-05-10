@@ -3,47 +3,9 @@
 
 
 AUTO_PUSH_DATA=TRUE # TRUE or FALSE
-
-# check if system control script is already running, if running exit
-if tmux has-session -t ctrl_sys; then
-  echo "Script is already running in a tmux session. Exiting."
-  exit 1
-fi
-
-tailscale up --operator=$USER
-
-
-# Start a new tmux session named '0' and start the first command
-tmux new-session -d -s ctrl_sys -n ctrl_sys
-
-tmux send-keys -t ctrl_sys 'cd ~/voc_detection_system/raspberry_pi_src' C-m
-
-# Send keys to tmux session for activating the virtual environment and starting the Discord bot
-# Uncomment following line if run.sh is outside of directory
-# tmux send-keys -t 0 'cd ephemeris-generator' C-m
-tmux send-keys -t ctrl_sys 'echo "Activating virtual environment..."' C-m
-tmux send-keys -t ctrl_sys 'source .venv/bin/activate' C-m
-tmux send-keys -t ctrl_sys 'echo "Starting Control Script..."' C-m
-tmux send-keys -t ctrl_sys 'python3 main.py' C-m
-
-
-# if enabled, run a cron job in the new terminal pane to push the gathered data to the git repo twice a day
-if [ "$AUTO_PUSH_DATA" = "TRUE" ]; then
-  echo "Script is already running in a tmux session. Exiting."
-  tmux split-window -h -t ctrl_sys
-  tmux send-keys -t ctrl_sys 'cd ~/voc_detection_system/raspberry_pi_src/shell_scripts' C-m
-  tmux send-keys -t ctrl_sys '0 0,12 * * * git_push_data.sh >> git_auto_push.log 2>&1' C-m
-fi
-
-
-
-
-#!/usr/bin/env bash
-
-# assume AUTO_PUSH_DATA has been set to "TRUE" or "FALSE" earlier
-# define exactly the line you want in crontab:
 CRON_LINE='0 0,12 * * * ~/voc_detection_system/raspberry_pi_src/shell_scripts/git_push_data.sh >> ~/voc_detection_system/raspberry_pi_src/shell_scripts/git_auto_push.log 2>&1'
 
+# if enabled, run a cron job in the new terminal pane to push the gathered data to the git repo twice a day
 if [ "$AUTO_PUSH_DATA" = "TRUE" ]; then
   # If enabled, ensure the tmux pane is running and the cron job is installed
   tmux split-window -h -t ctrl_sys || true
@@ -67,3 +29,25 @@ else
   fi
 fi
 
+
+# check if system control script is already running, if running exit
+if tmux has-session -t ctrl_sys; then
+  echo "Script is already running in a tmux session. Exiting."
+  exit 1
+fi
+
+tailscale up --operator=$USER
+
+
+# Start a new tmux session named '0' and start the first command
+tmux new-session -d -s ctrl_sys -n ctrl_sys
+
+tmux send-keys -t ctrl_sys 'cd ~/voc_detection_system/raspberry_pi_src' C-m
+
+# Send keys to tmux session for activating the virtual environment and starting the Discord bot
+# Uncomment following line if run.sh is outside of directory
+# tmux send-keys -t 0 'cd ephemeris-generator' C-m
+tmux send-keys -t ctrl_sys 'echo "Activating virtual environment..."' C-m
+tmux send-keys -t ctrl_sys 'source .venv/bin/activate' C-m
+tmux send-keys -t ctrl_sys 'echo "Starting Control Script..."' C-m
+tmux send-keys -t ctrl_sys 'python3 main.py' C-m
