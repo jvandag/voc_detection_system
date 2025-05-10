@@ -5,8 +5,8 @@
 ### How to sparse check out:
 **1.)** Initialize an empty clone (no files checked out yet):
 ```bash
-git clone --no-checkout https://github.com/USERNAME/REPO.git
-cd REPO
+git clone --no-checkout https://github.com/jvandag/voc_detection_system
+cd voc_detection_system
 ```
 
 **2.)** Enable sparse‑checkout in “cone” mode (fast path for whole directories):
