@@ -3,7 +3,7 @@
 sudo apt-get install python3-pip
 python3 -m venv ./.venv
 source .venv/bin/activate
-pip install .
+pip install -r requirements.txt
 
 # Configure cron job to automatically launch control system script
 # Path to the script
