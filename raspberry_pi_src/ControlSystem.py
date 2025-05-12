@@ -1,29 +1,12 @@
 from queue import Queue
 import RPi.GPIO as GPIO
+from dotenv import dotenv_values
 
-DEBUG = True
+config = dotenv_values(".env")
 
-class EnvironmentalChamber:
-    def __init__(
-        self, 
-        name: str, 
-        gas_valve_pin: int,
-        vac_valve_pin: int,
-        allow_multi_valves: bool = False,
-    ):
-        
-        self.name = name
-        self.gas_valve_pin = gas_valve_pin
-        self.vac_valve_pin = vac_valve_pin
-        
-        # When true allows multiple valves connected to the same chamber to be opened at once
-        # Ex: gas valve and vacuum or ambient release valve
-        self.allow_multi_valves = allow_multi_valves
-        self.status = "NORMAL"
-        
+from EnvironmentalChamber import EnvironmentalChamber
 
-        
-class CtrlSystem:
+class ControlSystem:
     def __init__(self, vacuum_ctrl_pin: int, ambient_valve_pin: int = None):
         GPIO.setmode(GPIO.BOARD)
         
@@ -101,12 +84,12 @@ class CtrlSystem:
     def turn_vacuum_on(self):
         """Turns power to the vacuum pump on by setting its GPIO pin HIGH"""
         self.set_pin_high(self.vacuum_ctrl_pin)
-        if (DEBUG): print("Vacuum turned ON")
+        if (config.DEBUG): print("Vacuum turned ON")
     
     def turn_vacuum_off(self):
         """Turns power to the vacuum pump off by setting its GPIO pin LOW"""
         self.set_pin_low(self.vacuum_ctrl_pin)
-        if (DEBUG): print("Vacuum turned OFF")
+        if (config.DEBUG): print("Vacuum turned OFF")
     
     def open_gas_valve(self, chamber: EnvironmentalChamber):
         """Opens the gas valve for the chamber"""
@@ -157,17 +140,17 @@ class CtrlSystem:
     def set_pin_high(self, pin):
         """Sets the GPIO pin HIGH"""
         GPIO.output(pin, GPIO.HIGH)
-        if (DEBUG): print(f"Pin {pin} set HIGH")
+        if (config.DEBUG): print(f"Pin {pin} set HIGH")
     
     def set_pin_low(self, pin):
         """Sets the GPIO pin LOW"""
         GPIO.output(pin, GPIO.LOW)
-        if (DEBUG): print(f"Pin {pin} set LOW")
+        if (config.DEBUG): print(f"Pin {pin} set LOW")
         
     def toggle_pin(self, pin):
         """Toggles the logic level of the GPIO pin"""
         GPIO.output(pin, not GPIO.input(pin))
-        if (DEBUG): print(f"Pin {pin} toggled")
+        if (config.DEBUG): print(f"Pin {pin} toggled")
         
     def reset_all_pins(self):
         '''Sets all GPIO pins on the board to LOW'''
@@ -176,4 +159,3 @@ class CtrlSystem:
             
         if (self.ambient_valve_pin != None):
             GPIO.output(self.ambient_valve_pin, GPIO.LOW)
-        
