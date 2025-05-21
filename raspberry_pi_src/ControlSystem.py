@@ -1,8 +1,7 @@
 from queue import Queue
 import RPi.GPIO as GPIO
-from dotenv import dotenv_values
 
-config = dotenv_values(".env")
+from config_manager import settings
 
 from EnvironmentalChamber import EnvironmentalChamber
 
@@ -84,12 +83,12 @@ class ControlSystem:
     def turn_vacuum_on(self):
         """Turns power to the vacuum pump on by setting its GPIO pin HIGH"""
         self.set_pin_high(self.vacuum_ctrl_pin)
-        if (config.DEBUG): print("Vacuum turned ON")
+        if (settings.get("DEBUG", False)): print("Vacuum turned ON")
     
     def turn_vacuum_off(self):
         """Turns power to the vacuum pump off by setting its GPIO pin LOW"""
         self.set_pin_low(self.vacuum_ctrl_pin)
-        if (config.DEBUG): print("Vacuum turned OFF")
+        if (settings.get("DEBUG", False)): print("Vacuum turned OFF")
     
     def open_gas_valve(self, chamber: EnvironmentalChamber):
         """Opens the gas valve for the chamber"""
@@ -140,17 +139,17 @@ class ControlSystem:
     def set_pin_high(self, pin):
         """Sets the GPIO pin HIGH"""
         GPIO.output(pin, GPIO.HIGH)
-        if (config.DEBUG): print(f"Pin {pin} set HIGH")
+        if (settings.get("DEBUG", False)): print(f"Pin {pin} set HIGH")
     
     def set_pin_low(self, pin):
         """Sets the GPIO pin LOW"""
         GPIO.output(pin, GPIO.LOW)
-        if (config.DEBUG): print(f"Pin {pin} set LOW")
+        if (settings.get("DEBUG", False)): print(f"Pin {pin} set LOW")
         
     def toggle_pin(self, pin):
         """Toggles the logic level of the GPIO pin"""
         GPIO.output(pin, not GPIO.input(pin))
-        if (config.DEBUG): print(f"Pin {pin} toggled")
+        if (settings.get("DEBUG", False)): print(f"Pin {pin} toggled")
         
     def reset_all_pins(self):
         '''Sets all GPIO pins on the board to LOW'''
