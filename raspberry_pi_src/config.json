@@ -1,0 +1,6 @@
+{
+    "DEBUG": 1,
+    "fan_GPIO_pin": 32,
+    "fan_temp_thresh": 50.0,
+    "fan_temp_poll_rate": 2
+}
