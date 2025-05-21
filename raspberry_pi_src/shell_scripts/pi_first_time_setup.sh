@@ -4,6 +4,12 @@ sudo apt-get install python3-pip
 python3 -m venv ./.venv
 source .venv/bin/activate
 pip install -r requirements.txt
+sudo groupadd --system gpio
+sudo usermod -aG gpio "$USER"
+echo 'KERNEL=="gpiomem", GROUP="gpio", MODE="0660"' \
+  | sudo tee /etc/udev/rules.d/99-gpio.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+
 
 # Configure cron job to automatically launch control system script
 # Path to the script
@@ -33,3 +39,5 @@ else
   fi
   echo "Installed login cron job: $CRON_ENTRY"
 fi
+
+echo "Setup complete, restart required..."

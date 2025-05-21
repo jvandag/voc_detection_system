@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# # This script should be set to run when the PI starts to automate the control system
-
+# This script should be set to run when the PI starts to automate the control system
+source .venv/bin/activate
 
 AUTO_PUSH_DATA=TRUE # TRUE or FALSE
 CRON_LINE='0 0,12 * * * ~/voc_detection_system/raspberry_pi_src/shell_scripts/git_push_data.sh >> ~/voc_detection_system/raspberry_pi_src/shell_scripts/git_auto_push.log 2>&1'
