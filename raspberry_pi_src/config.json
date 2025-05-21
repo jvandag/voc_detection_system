@@ -1,6 +1,8 @@
 {
     "DEBUG": 1,
     "fan_GPIO_pin": 32,
-    "fan_temp_thresh": 50.0,
-    "fan_temp_poll_rate": 2
+    "fan_on_temp_thresh": 55.0,
+    "fan_off_temp_thresh": 52.0,
+    "fan_temp_poll_rate": 2,
+    "LED_GPIO_pin": 26
 }
