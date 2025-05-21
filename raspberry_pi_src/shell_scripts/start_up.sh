@@ -39,7 +39,7 @@ fi
 tailscale up --operator=$USER
 
 
-# Start a new tmux session named '0' and start the first command
+# Start a new tmux session named 'ctrl_sys' and start the first command
 tmux new-session -d -s ctrl_sys -n ctrl_sys
 
 tmux send-keys -t ctrl_sys 'cd ~/voc_detection_system/raspberry_pi_src' C-m
@@ -50,4 +50,12 @@ tmux send-keys -t ctrl_sys 'cd ~/voc_detection_system/raspberry_pi_src' C-m
 tmux send-keys -t ctrl_sys 'echo "Activating virtual environment..."' C-m
 tmux send-keys -t ctrl_sys 'source .venv/bin/activate' C-m
 tmux send-keys -t ctrl_sys 'echo "Starting Control Script..."' C-m
-tmux send-keys -t ctrl_sys 'python3 main.py' C-m
+# tmux send-keys -t ctrl_sys 'python3 main.py' C-m
+
+
+# 
+tmux new-session -d -s fan_ctrl -n fan_ctrl
+tmux send-keys -t fan_ctrl 'echo "Activating virtual environment..."' C-m
+tmux send-keys -t fan_ctrl 'source .venv/bin/activate' C-m
+tmux send-keys -t fan_ctrl 'cd ~/voc_detection_system/raspberry_pi_src' C-m
+tmux send-keys -t fan_ctrl 'python3 fan_controller.py' C-m
