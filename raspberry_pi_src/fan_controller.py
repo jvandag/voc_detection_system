@@ -31,8 +31,11 @@ def main():
 
     try:
         while True:
+            # Get the temperature of the cpu
             temp = get_cpu_temp()
             hot = (temp >= temp_thresh)
+            
+            # toggle fan based off of temp
             GPIO.output(fan_pin, GPIO.HIGH if hot else GPIO.LOW)
             state = "ON" if hot else "OFF"
             print(f"CPU Temp: {temp:.2f}°C, Threshold Temp: {temp_thresh:.1f}°C → Fan {state}")
@@ -40,8 +43,9 @@ def main():
     except KeyboardInterrupt:
         print("\nInterrupted; cleaning up...")
     finally:
+        # Turn fan off
         GPIO.output(fan_pin, GPIO.LOW)
-        GPIO.cleanup()
+        # GPIO.cleanup()
 
 if __name__ == "__main__":
     main()
