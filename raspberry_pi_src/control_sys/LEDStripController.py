@@ -8,10 +8,10 @@ import time
 import math
 import threading
 import RPi.GPIO as GPIO
-from config_manager import settings
+from config.config_manager import settings
 
 
-class LED_Breather:
+class LEDBreather:
     """
     Controls a 12 V LED strip with a smooth breathing effect.
 
@@ -90,7 +90,7 @@ class LED_Breather:
 
 
 if __name__ == "__main__":
-    breather = LED_Breather()
+    breather = LEDBreather()
     try:
         print("Starting breathing effect. Press Ctrl+C to stop.")
         breather.start()

@@ -1,9 +1,9 @@
 from queue import Queue
 import RPi.GPIO as GPIO
 
-from config_manager import settings
+from config.config_manager import settings
 
-from EnvironmentalChamber import EnvironmentalChamber
+from ctrl_sys_helper_classes.EnvironmentalChamber import EnvironmentalChamber
 
 class ControlSystem:
     def __init__(self, vacuum_ctrl_pin: int, ambient_valve_pin: int = None):

@@ -11,7 +11,7 @@ import time
 import subprocess
 import RPi.GPIO as GPIO
 
-from config_manager import settings
+from config.config_manager import settings
 
 
 def get_cpu_temp():

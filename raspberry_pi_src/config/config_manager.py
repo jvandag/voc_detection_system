@@ -1,4 +1,3 @@
-# config.py
 import json
 import os
 
@@ -16,5 +15,5 @@ def save():
     with open(CONFIG_PATH, "w") as f:
         json.dump(settings, f, indent=2)
 
-# module‐level “singleton” config dict (one instance of settings shared between models)
+# module‐level "singleton" config dict (one instance of settings shared between models)
 settings: dict = _load()
