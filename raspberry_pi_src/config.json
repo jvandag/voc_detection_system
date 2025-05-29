@@ -1,14 +1,27 @@
 {
     "DEBUG": 1,
 
-    "fan_GPIO_pin":         32,
+    "power_on_LED_pin": 4,
+
+    "fan_pin":              25,
     "fan_on_temp_thresh":   55.0,
     "fan_off_temp_thresh":  52.0,
     "fan_temp_poll_rate":   2,
 
-    "LED_strip_GPIO_pin":          26,
+    "LED_strip_pin":               26,
     "LED_strip_PWM_freq":          2500,
     "LED_strip_breath_period":     5,
     "LED_strip_breath_res":        100,
-    "LED_strip_max_duty_cycle":    100
+    "LED_strip_max_duty_cycle":    100,
+
+    "gas_valve_mux_sel_pins":       [5, 6, 13],
+    "gas_valve_mux_sig_pin":        12,
+
+    "vac_valve_mux_sel_pins":       [16, 20, 21],
+    "vac_valve_mux_sig_pin":        19,
+
+    "chamber_status_mux_sel_pins":  [18, 17, 27, 22],
+    "chamber_status_mux_sig_pins":  23,
+    "FF_clk_mux_sig_pin":           24
+
 }
