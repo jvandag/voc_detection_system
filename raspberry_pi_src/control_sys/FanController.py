@@ -72,15 +72,18 @@ class FanController:
             self.state = True
         return temp, self.state
 
-    def run(self):
+    def run(self, use_thresh=True):
         """
         Start the polling loop. Loop until stopped externally.
         """
-        while True:
-            temp, state = self.update()
-            off = self.off_thresh if self.off_thresh is not None else self.on_thresh
-            print(f"CPU Temp: {temp:.2f}°C, thresholds on={self.on_thresh:.1f}, off={off:.1f} -> Fan {'ON' if state else 'OFF'}")
-            time.sleep(self.poll_rate)
+        if use_thresh:
+            while True:
+                temp, state = self.update()
+                off = self.off_thresh if self.off_thresh is not None else self.on_thresh
+                print(f"CPU Temp: {temp:.2f}°C, thresholds on={self.on_thresh:.1f}, off={off:.1f} -> Fan {'ON' if state else 'OFF'}")
+                time.sleep(self.poll_rate)
+        else:
+            GPIO.output(self.fan_pin, GPIO.HIGH)
 
     def stop(self):
         """
