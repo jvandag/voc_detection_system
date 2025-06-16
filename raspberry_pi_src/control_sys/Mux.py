@@ -91,6 +91,22 @@ class MUX:
         self.select(channel)
         GPIO.setup(self.sig, GPIO.OUT)
         GPIO.output(self.sig, value)
+        
+    def pos_edge(self, channel: int):
+        """
+        Ensures signal is low then sends a quick high pulse
+        """
+        # set address
+        self.select(channel)
+        # ensure signal starts low
+        GPIO.setup(self.sig, GPIO.OUT)
+        GPIO.output(self.sig, GPIO.LOW)
+        # wait for mux and flip flop to settle
+        time.sleep(self.settle)
+        GPIO.output(self.sig, GPIO.HIGH)
+        time.sleep(self.settle)
+        GPIO.output(self.sig, GPIO.LOW)
+        time.sleep(self.settle)
 
     def read(self, channel: int) -> int:
         """
@@ -110,7 +126,7 @@ class MUX:
 
 if __name__ == "__main__":
     # Example for 8-channel MUX:
-    sel_pins = [17, 27, 22]  # 3 select lines → 8 channels
+    sel_pins = [17, 27, 22]  # 3 select lines -> 8 channels
     sig_pin = 24
 
     mux = MUX(select_pins=sel_pins, signal_pin=sig_pin, gpio_mode=GPIO.BCM)
