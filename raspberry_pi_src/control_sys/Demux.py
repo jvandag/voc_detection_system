@@ -76,8 +76,7 @@ class DEMUX: #DEMUX
         Set select lines to choose the given channel.
         """
         if not (0 <= channel < self.max_channel):
-            raise ValueError(
-                f"channel must be between 0 and {self.max_channel - 1}")
+            raise ValueError(f"channel must be between 0 and {self.max_channel - 1}")
 
         for bit in range(self.n_bits):
             level = GPIO.HIGH if ((channel >> bit) & 1) else GPIO.LOW
