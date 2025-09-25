@@ -1,80 +1,117 @@
+"""
+Tests that all of the system components are connected correctly and able
+to be interfaced with. Does not check ControlSystem
+"""
 from control_sys.LEDStripController import LEDBreather
-from control_sys.Mux import MUX
+from control_sys.SerialMonitor import SerialMonitor
+from control_sys.ShiftRegister import ShiftRegister
+# from control_sys.Demux import DEMUX
 from control_sys.FanController import FanController
 import time
 import RPi.GPIO as GPIO
 from config.config_manager import settings
 
-def set_LED(LED_address: int, LED_mux: MUX, clk_mux: MUX, value:int):
-    LED_mux.write(channel=LED_address, value=value)
-    clk_mux.pos_edge(LED_address)
-    LED_mux.write(LED_address, GPIO.LOW)
-
-
 if __name__ == "__main__":
     fan_controller = FanController()
     
-    # power on indicator LED
+    print("Getting on power indicator LED pin")
     power_LED_pin = settings.get("power_on_LED_pin")
-    vac_relay_pin = settings.get("vac_relay_pin")
+    print("Getting vacuum control pin")
+    vacuum_ctrl_pin = settings.get("vacuum_ctrl_pin")
     
-    # get the pins for the muxes from the settings
-    # BCM-numbered GPIO pins for S0…S3, and the shared SIG line:
-    gas_sel_pins = settings.get("gas_valve_mux_sel_pins")
-    gas_sig_pin  = settings.get("gas_valve_mux_sig_pin")
-    
-    vac_sel_pins = settings.get("gas_valve_mux_sel_pins")
-    vac_sig_pin  = settings.get("gas_valve_mux_sig_pin")
-    
-    cham_stat_sel_pins = settings.get("chamber_status_mux_sel_pins")
-    cham_stat_sig_pin  = settings.get("chamber_status_mux_sig_pins")
-    FF_clk_sig_pin     = settings.get("FF_clk_mux_sig_pin")
-    
+    # Turn LED breather on
+    print("Turning LED strip on")
+    led_breather = LEDBreather()
+    led_breather.start()
 
-    # Initialize muxes
-    gas_mux     = MUX(select_pins=gas_sel_pins, signal_pin=gas_sig_pin, gpio_mode=GPIO.BCM)
-    vac_mux     = MUX(select_pins=vac_sel_pins, signal_pin=vac_sig_pin, gpio_mode=GPIO.BCM)
-    stat_mux    = MUX(select_pins=cham_stat_sel_pins, signal_pin=cham_stat_sig_pin, gpio_mode=GPIO.BCM)
-    # FF_clk_mux controls the clock for the flip flops that latch the status LED light state,
-    # the select pins are shared with stat_mux
-    FF_clk_mux  = MUX(select_pins=cham_stat_sel_pins, signal_pin=FF_clk_sig_pin, gpio_mode=GPIO.BCM)
+    # Enable serial mesage monitor
+    print("Enabling serial monitor")
+    serial_monitor = SerialMonitor(print_msgs=True, save_data=False)
+    serial_monitor.start_monitoring(monitor_interval=1)
+
+    shift_reg = ShiftRegister(num_bits = 16)
     
-    # toggle fans
+    # Toggle fans
+    print("Turning fans on")
     fan_controller.run(use_thresh=False)
     time.sleep(3)
+    print("Turning fans off")
     fan_controller.stop()
     
     # Turn on power on LED
+    print("Turning power indicator LED on")
     GPIO.setup(power_LED_pin, GPIO.OUT)
     GPIO.output(power_LED_pin, GPIO.HIGH)
     
     # Check that vacuum relay works
-    GPIO.setup(vac_relay_pin, GPIO.OUT)
-    GPIO.output(vac_relay_pin, GPIO.HIGH)
+    print("Turning vacuum on")
+    GPIO.setup(vacuum_ctrl_pin, GPIO.OUT)
+    GPIO.output(vacuum_ctrl_pin, GPIO.HIGH)
+    time.sleep(3)
+    print("Turning vacuum off")
+    GPIO.output(vacuum_ctrl_pin, GPIO.LOW)
     
-    # test functionality of each status LED and each chamber solenoid
+    # Test shift reg opens valves
+    shift_reg.set_all_low()
     for i in range(8):
-        # For the i-th chamber:
-        # turn on both status LEDs
-        set_LED(i*2, stat_mux, FF_clk_mux, GPIO.HIGH)
+        # open and close both valves for each chamber
+        print(f"Opening gas valve for chamber {i}")
+        shift_reg.write_bit(bit_num = 2*i, level = GPIO.HIGH)
         time.sleep(1)
-        set_LED(i*2+1, stat_mux, FF_clk_mux, GPIO.HIGH)
+        print(f"Opening vac valve for chamber {i}")
+        shift_reg.write_bit(bit_num = 2*i+1, level = GPIO.HIGH)
         time.sleep(1)
+        print(f"Closing valves for chamber {i}")
+        shift_reg.overwrite_buffer(bit_nums=[])
+        time.sleep(1)
+
+    print("Stopping serial monitor")
+    serial_monitor.stop_monitoring()
+    print("Turning LED strip off")
+    led_breather.stop()
+    print("Completed System Test!")
+
+
+    # DEMUX Hook up for valves
+    # print("Initialiing demuxes")
+    # valve_demux = DEMUX(select_pins = settings.get("valve_demux_sel_pins"),
+    #                             signal_pin = settings.get("valve_demux_sig_pin"),
+    #                             FF_stored = True,
+    #                             FF_clk_pin = settings.get("valve_FF_clk_pin"))
+    
+    # chamber_status_demux = DEMUX(select_pins = settings.get("chamber_status_demux_sel_pins"),
+    #                              signal_pin = settings.get("chamber_status_demux_sig_pin"),
+    #                              FF_stored = True,
+    #                              FF_clk_pin = settings.get("chamber_status_FF_clk_pin"))
+    # # # test functionality of each status LED and each chamber solenoid
+    # for i in range(8):
+    #     # For the i-th chamber:
+    #     # turn on both status LEDs
+    #     print(f"Turning ON LED on demux channel {i*2}")
+    #     chamber_status_demux.write(i*2, GPIO.HIGH)
+    #     time.sleep(1)
+    #     print(f"Turning ON LED on demux channel {i*2+1}")
+    #     chamber_status_demux.write(i*2+1, GPIO.HIGH)
+    #     time.sleep(1)
+
+    #     print(f"Turning OFF LED on demux channel {i*2}")
+    #     chamber_status_demux.write(i*2, GPIO.LOW)
+    #     time.sleep(1)
+    #     print(f"Turning OFF LED on demux channel {i*2+1}")
+    #     chamber_status_demux.write(i*2+1, GPIO.LOW)
+    #     time.sleep(1)
         
-        # open gas valve solenoid
-        gas_mux.write(i, GPIO.HIGH)
-        time.sleep(1)
-        # close gas valve solenoid
-        gas_mux.write(i, GPIO.LOW)
-        time.sleep(0.5)
-        # open vac valve solenoid
-        vac_mux.write(i, GPIO.HIGH)
-        time.sleep(1)
-        # close gas valve solenoid
-        vac_mux.write(i, GPIO.LOW)
-        # Turn off both status LEDs
-        set_LED(i*2, stat_mux, FF_clk_mux, GPIO.LOW)
-        time.sleep(0.5)
-        set_LED(i*2+1, stat_mux, FF_clk_mux, GPIO.LOW)
-   
-    # RUN QUEUE FUNCTIONALITY CHECK AFTER IT IS IMPLEMENTED
+    #     # open each solenoid valve
+    #     print(f"Opening valve on demux channel {i*2}")
+    #     valve_demux.write(i*2, GPIO.HIGH)
+    #     time.sleep(1)
+    #     print(f"Opening valve on demux channel {i*2+1}")
+    #     valve_demux.write(i*2+1, GPIO.HIGH)
+    #     time.sleep(1)
+
+    #     print(f"Closing valve on demux channel {i*2}")
+    #     valve_demux.write(i*2, GPIO.LOW)
+    #     time.sleep(1)
+    #     print(f"Closing valve on demux channel {i*2+1}")
+    #     valve_demux.write(i*2+1, GPIO.LOW)
+    #     time.sleep(1)
