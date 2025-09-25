@@ -1,0 +1,160 @@
+"""
+MUX — N-to-2^N bidirectional GPIO multiplexer controller
+
+Usage:
+    from mux import MUX
+
+    # BCM-numbered GPIO pins for select lines [S0…S(N-1)] and the shared SIG line:
+    sel_pins = [17, 27, 22]   # e.g. 3 select pins → 8 channels
+    sig_pin  = 24
+
+    mux = MUX(select_pins=sel_pins, signal_pin=sig_pin, gpio_mode=GPIO.BCM)
+    try:
+        # Drive channel 5 high:
+        mux.write(5, GPIO.HIGH)
+
+        # Read from channel 2:
+        val = mux.read(2)
+        print("Channel 2 reads", val)
+
+    finally:
+        mux.cleanup()
+"""
+
+import RPi.GPIO as GPIO
+import time
+
+class DEMUX: #DEMUX
+    def __init__(self,
+                 select_pins: list[int],
+                 signal_pin: int,
+                 gpio_mode=GPIO.BCM,
+                 initial_channel: int = 0,
+                 settle_time: float = 0.001,
+                 FF_stored: bool = False,
+                 FF_clk_pin: int | None = None):
+        """
+        Generic multiplexer controller:
+        - N select lines -> 2^N channels
+        - 1 shared signal line (bidirectional)
+
+        Parameters
+        ----------
+        select_pins : list[int]
+            GPIO pins for select bits [S0, S1, ..., S(N-1)]
+        signal_pin : int
+            Shared data pin (input or output)
+        gpio_mode : GPIO.BCM or GPIO.BOARD
+        initial_channel : int
+            Channel (0 to 2^N - 1) to select at init
+        settle_time : float
+            Delay (s) after switching before read/write
+        """
+        self.sel = select_pins
+        self.sig = signal_pin
+        self.settle = settle_time
+        self.n_bits = len(self.sel)
+        self.max_channel = 1 << self.n_bits
+        self.FF_stored = FF_stored
+        self.FF_clk_pin = FF_clk_pin
+
+        if self.n_bits < 1:
+            raise ValueError("Must have at least one select pin")
+
+        GPIO.setmode(gpio_mode)
+        GPIO.setwarnings(False)
+
+        # Initialize select lines
+        for pin in self.sel:
+            GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
+
+        self.channel = None
+        self.select(initial_channel)
+
+    def select(self, channel: int):
+        """
+        Set select lines to choose the given channel.
+        """
+        if not (0 <= channel < self.max_channel):
+            raise ValueError(
+                f"channel must be between 0 and {self.max_channel - 1}")
+
+        for bit in range(self.n_bits):
+            level = GPIO.HIGH if ((channel >> bit) & 1) else GPIO.LOW
+            GPIO.output(self.sel[bit], level)
+
+        self.channel = channel
+        time.sleep(self.settle)
+
+    def write(self, channel: int, value: int):
+        """
+        Drive the selected channel pin high or low.
+        """
+        self.select(channel)
+        GPIO.setup(self.sig, GPIO.OUT)
+        GPIO.output(self.sig, value)
+        if (self.FF_stored): # clock value into flip flop
+            self.pos_edge(self.FF_clk_pin)
+
+
+    def pos_edge(self, pin: int):
+        """
+        Ensures signal is low then sends a quick high pulse
+        """
+        # ensure pin starts low
+        GPIO.setup(pin, GPIO.OUT)
+        GPIO.output(pin, GPIO.LOW)
+        # wait for mux and flip flop to settle
+        time.sleep(self.settle)
+        GPIO.output(pin, GPIO.HIGH)
+        time.sleep(self.settle)
+        GPIO.output(pin, GPIO.LOW)
+        time.sleep(self.settle)
+
+    def channel_pos_edge(self, channel: int):
+        """
+        Ensures signal is low then sends a quick high pulse
+        """
+        # set address
+        self.select(channel)
+        # ensure signal starts low
+        GPIO.setup(self.sig, GPIO.OUT)
+        GPIO.output(self.sig, GPIO.LOW)
+        # wait for mux and flip flop to settle
+        time.sleep(self.settle)
+        GPIO.output(self.sig, GPIO.HIGH)
+        time.sleep(self.settle)
+        GPIO.output(self.sig, GPIO.LOW)
+        time.sleep(self.settle)
+
+    def read(self, channel: int) -> int:
+        """
+        Read the level on the selected channel pin.
+        Returns GPIO.HIGH (1) or GPIO.LOW (0).
+        """
+        self.select(channel)
+        GPIO.setup(self.sig, GPIO.IN)
+        return GPIO.input(self.sig)
+
+    def cleanup(self):
+        """
+        Reset all used GPIOs.
+        """
+        pins = [*self.sel, self.sig]
+        if self.FF_stored: pins.append(self.FF_clk_pin)
+        GPIO.cleanup(pins)
+
+
+if __name__ == "__main__":
+    # Example for 8-channel MUX:
+    sel_pins = [17, 27, 22]  # 3 select lines -> 8 channels
+    sig_pin = 24
+
+    demux = DEMUX(select_pins=sel_pins, signal_pin=sig_pin, gpio_mode=GPIO.BCM)
+    try:
+        demux.write(3, GPIO.HIGH)
+        val = demux.read(5)
+        print("Channel 5:", "HIGH" if val else "LOW")
+
+    finally:
+        demux.cleanup()
