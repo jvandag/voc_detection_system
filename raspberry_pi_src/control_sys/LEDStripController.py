@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 LED_strip_controller.py
 Drives a 12V LED strip with a smooth breathing effect as a reusable class,
@@ -33,7 +32,7 @@ class LEDBreather:
         self.period = breathe_period or settings.get("LED_strip_breath_period", 5.0)
         self.res = steps or settings.get("LED_strip_breath_res", 100)
         self.max_duty = max_duty or settings.get("LED_strip_max_duty_cycle", 100)
-
+        
         # Precompute increments
         self.angle_step = 2 * math.pi / self.res
         self.delay = self.period / self.res
