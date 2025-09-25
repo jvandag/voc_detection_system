@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Stage the current version of 
-git add ~/voc_detection_system/raspberry_pi_src
+git add ~/voc_detection_system/raspberry_pi_src/data
 
 # Commit with a timestamped message
 git commit -m "chore: automatic data push @ $(date)"
