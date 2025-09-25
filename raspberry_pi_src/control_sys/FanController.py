@@ -6,7 +6,7 @@ Reads CPU temperature and switches a GPIO pin HIGH when temperature >= on-thresh
 and LOW when temperature <= off-threshold. Configurable via config_manager settings
 or via constructor parameters.
 """
-
+import threading
 import time
 import subprocess
 import RPi.GPIO as GPIO
@@ -49,6 +49,9 @@ class FanController:
 
         # Internal state: False=OFF, True=ON
         self.state = False
+        
+        self.thread = None
+        self.running = False
 
         # GPIO setup
         GPIO.setwarnings(False)
@@ -72,10 +75,7 @@ class FanController:
             self.state = True
         return temp, self.state
 
-    def run(self, use_thresh=True):
-        """
-        Start the polling loop. Loop until stopped externally.
-        """
+    def _run_loop(self, use_thresh=True):
         if use_thresh:
             while True:
                 temp, state = self.update()
@@ -85,18 +85,29 @@ class FanController:
         else:
             GPIO.output(self.fan_pin, GPIO.HIGH)
 
+    def run(self, use_thresh=True):
+        """
+        Start the polling loop. Loop until stopped externally.
+        """
+        if not self.running:
+                    self.running = True
+                    self.thread = threading.Thread(target=self._run_loop, args=(use_thresh,), daemon=True)
+                    self.thread.start()
+
     def stop(self):
-        """
-        Stop the controller: turn fan off and clean up GPIO.
-        """
+        self.running = False
+        if self.thread is not None:
+            self.thread.join()
         GPIO.output(self.fan_pin, GPIO.LOW)
-        # GPIO.cleanup() uncomment if you want all gpio pins to be cleared
         print("Fan controller stopped and GPIO cleaned up.")
+        # GPIO.cleanup()  # Uncomment if you want to reset all GPIO pin
+
 
 
 if __name__ == "__main__":
     controller = FanController()
     try:
+        print("Starting fan controller. Press Ctrl+C to stop.")
         controller.run()
     except KeyboardInterrupt:
         print("\nKeyboard interrupt received. Stopping controller...")
