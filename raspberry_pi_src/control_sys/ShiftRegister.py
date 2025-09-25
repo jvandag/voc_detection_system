@@ -1,4 +1,6 @@
 import RPi.GPIO as GPIO
+from config.config_manager import settings
+
 
 class ShiftRegister:
     """
@@ -15,18 +17,31 @@ class ShiftRegister:
                  gpio_mode = GPIO.BCM): # outputs the value that was in the N-th bit when SRCLK is asserted
         
         self.num_bits = num_bits
-        self.SER = SER
-        self.SRCLK = SRCLK
-        self.RCLK = RCLK
-        self.SRCLR = SRCLR
-        self.OE = OE
+        self.SER = SER or settings.get("valve_shift_reg_ser_pin")
+        self.SRCLK = SRCLK or settings.get("valve_shift_reg_srclk_pin")
+        self.RCLK = RCLK or settings.get("valve_shift_reg_rclk_pin")
+        self.SRCLR = SRCLR or settings.get("valve_shift_reg_srclr_pin", None)
+        self.OE = OE or settings.get("valve_shift_reg_oe_pin", None)
+
+        self.current_outputs = []
         
         self._initialize_gpio(gpio_mode)
         self.set_all_low()
     
-    def wr_outputs(self, bit_nums: list):
-        # sets the bits specified in the bit_nums list to high and every other bit to low
+    def write_bit(self, bit_num, level: int):
+        if (self.OE != None): self._disable_shift_reg_outputs()
+        GPIO.output(self.SRCLK, GPIO.LOW)
+        GPIO.output(self.RCLK, GPIO.LOW)
+        self.current_outputs[bit_num] = level
+        for i in range (self.num_bits):
+            GPIO.output(self.SER, self.current_outputs[i])
+            GPIO.output(self.SRCLK, GPIO.HIGH)
+            GPIO.output(self.SRCLK, GPIO.LOW)
+        self._commit()
+        if (self.OE != None): self._enable_shift_reg_outputs()
 
+    def overwrite_buffer(self, bit_nums: list):
+        # sets the bits specified in the bit_nums list to high and every other bit to low
         if (self.OE != None): self._disable_shift_reg_outputs()
         GPIO.output(self.SRCLK, GPIO.LOW)
         GPIO.output(self.RCLK, GPIO.LOW)
@@ -42,7 +57,8 @@ class ShiftRegister:
         if (self.SRCLR != None): 
             self._clear_shadow_registers()
             self._commit()
-        else: self.wr_outputs(bit_nums=[]) # write nothing which will set all values low
+        else: self.overwrite_buffer(bit_nums=[]) # write nothing which will set all values low
+        self.current_outputs = []
 
     def _initialize_gpio(self):
         for pin in [self.SER, self.SRCLK, self.RCLK, self.SRCLR]:
