@@ -20,8 +20,7 @@
     "valve_shift_reg_ser_pin":      -1,
     "valve_shift_reg_srclk_pin":    -1,
     "valve_shift_reg_rclk_pin":     -1,
-    "valve_shift_reg_srclr_pin":    -1,
-    "valve_shift_reg_oe_pin":       -1,
+
 
     "valve_demux_sel_pins":     [5, 6, 13, -1],
     "valve_demux_sig_pin":      12,
@@ -34,7 +33,6 @@
     
     "chamber_groups": {
         "1": {
-            "chambers":             [1, 2, 3],
             "last_purge":           0,
             "purge_interval_s":     86400
         }

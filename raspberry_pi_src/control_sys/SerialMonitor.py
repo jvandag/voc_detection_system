@@ -41,13 +41,13 @@ class SerialMonitor:
             print(f"Stopped listening on {port_name}")
 
     def parse_serial_msg(self, data: str):
-        file_path = "test_file.csv"
         if (self.print_msgs): print(f"{data}")
         # save to appropriate CSV based off of message
 
         if self.save_data:
             # Split the string into a list (assuming comma-separated values)
             row = data.split(',')
+            file_path = f"test_file.csv"
             # read first item in row to figure what the data is for.
             # Open the file in append mode
             with open(file_path, mode='a', newline='', encoding='utf-8') as file:
