@@ -305,9 +305,8 @@ conf_matrix = confusion_matrix(equal_labels, equal_preds, labels=actual_label_na
 disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=actual_label_names)
 fig, ax = plt.subplots(figsize=(10, 7))  # Set figure size
 
-# creat color map
-
-# 2) grab the original cmap
+# create color map
+# grab the original cmap
 orig_cmap = mpl.cm.get_cmap("Greens")
 
 orig_cmap = LinearSegmentedColormap.from_list(
@@ -315,7 +314,7 @@ orig_cmap = LinearSegmentedColormap.from_list(
     ["white", "darkolivegreen", "darkgreen"],       # start at grey, end at full green
     N=256                          # number of discrete steps
 )
-# 3) subsection cmap to scale lower bound color and down upper bound color
+# subsection cmap to scale lower bound color and down upper bound color
 cust_cmap = LinearSegmentedColormap.from_list(
     "Green_trunc",
     orig_cmap(np.linspace(0.08, 0.75, 256))
@@ -328,7 +327,7 @@ cbar.ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 cbar.locator = MaxNLocator(nbins=8, integer=True)
 cbar.update_ticks()
 
-# Customize axis labels
+# axis labels
 ax.set_xlabel("Predicted Label")
 ax.set_ylabel("True Label")
 ax.set_title("Confusion Matrix")
