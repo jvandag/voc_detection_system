@@ -4,27 +4,7 @@
 #include "commMux\commMux.h"
 #include <Esp.h>
 
-#define N_KIT_SENS 8
-#define SD_PIN_CS 33 // Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3, pin 33 on adafruit esp32 V2
-#define PANIC_LED LED_BUILTIN
-#define PANIC_DUR 5
-#define MEAS_DUR 5
-#define SAMPLE_NAME "MEDIUM"
-#define COMPLETE_READ 0xFF
-#define DEBUG true
-
-// Explicit pin defines for the Adafruit esp32 V2 board
-// Pinouts for this board must be explicitly defined to work with platformio
-#define SDA       22
-#define SCL       20
-#define I2C_FREQ  400000
-#define MOSI      19
-#define MISO      21  
-#define SCK       5
-
-/*Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3,
-pin 33 on adafruit esp32 V2*/
-#define CS        33
+#include "feather_v2_config.h" // must be after other includes as it overwrides certain pins and values
 
 
 /* Declaration of variables */
@@ -82,18 +62,18 @@ void saveSensorData() {
   File file;
 
   if (!SD.exists(logFile)) { // create a new file at path doesn't exist
-    if (DEBUG) Serial.println("Creating new log file: " + logFile);
+    DEBUG_PRINT("Creating new log file: " + logFile);
     file = SD.open(logFile, FILE_WRITE); //open in write to create a new file
     //file.close(); //the file isn't created on the SD card until it's closed
     String exists = SD.exists(logFile) ? "yes" : "no";
-    if (DEBUG) Serial.println("file exists?: " + exists);
+    DEBUG_PRINT("file exists?: " + exists);
   }
   else { //if path file exists append to it rather than write over
-    if (DEBUG) Serial.println("Opening existing log file: " + logFile);
+    DEBUG_PRINT("Opening existing log file: " + logFile);
     file = SD.open(logFile, FILE_APPEND); 
   }
   if (!file) {
-    if (DEBUG) Serial.println("Failed to open file for appending: " + logFile);
+    DEBUG_PRINT("Failed to open file for appending: " + logFile);
     panicLeds();
   }
   String data = SAMPLE_NAME;
@@ -101,9 +81,9 @@ void saveSensorData() {
     data += String(",") + String(i) + "," + String(validReads[i]);
   }
   if (file.println(data)) {
-    if (DEBUG) Serial.println("Wrote to " + logFile);
+    DEBUG_PRINT("Wrote to " + logFile);
   } else {
-    if (DEBUG) Serial.println("Write append failed");
+    DEBUG_PRINT("Write append failed");
   }
   file.close();
 }
@@ -112,28 +92,30 @@ void saveSensorData() {
  * @brief Configures and initializes hardware and sensors
  */
 void setup(void) {
-  if (DEBUG) Serial.begin(9600);
+  #if DEBUG
+    Serial.begin(9600);
+  #endif
   delay(5000);  // Give time for Serial Monitor to connect
-  if (DEBUG) Serial.println("Initializing Setup!");
+  DEBUG_PRINT("\nInitializing Setup!");
   //yield();
   /* Initiate SPI communication (shared bus for sensor multiplexer) */
   SPI.begin(SCK, MISO, MOSI, CS);
   Wire.begin(SDA, SCL, I2C_FREQ);
   //Wire.setTimeout(100);           // give it a finite ACK timeout (ms)
   commMuxBegin(Wire, SPI);
-  if (DEBUG) Serial.println("CommMux Began...");
+  DEBUG_PRINT("CommMux Began...");
   pinMode(PANIC_LED, OUTPUT);
   delay(100);
 
   /* Setting up SD Card */
-  if (DEBUG) Serial.println("Initializing SD card...");
+  DEBUG_PRINT("Initializing SD card...");
 
   if (!SD.begin(SD_PIN_CS)) {
-    if (DEBUG) Serial.println("SD Card not found or initialization failed");
+    DEBUG_PRINT("SD Card not found or initialization failed");
     panicLeds();
   } 
   else {
-    if (DEBUG) Serial.println("SD Card found");
+    DEBUG_PRINT("SD Card found");
   }
 
   /* Communication interface set for all the 8 sensors in the development kit */
@@ -141,14 +123,14 @@ void setup(void) {
     commSetup[i] = commMuxSetConfig(Wire, SPI, i, commSetup[i]);
     bme[i].begin(BME68X_SPI_INTF, commMuxRead, commMuxWrite, commMuxDelay, &commSetup[i]);
     if (bme[i].checkStatus()) {
-      if (DEBUG) Serial.println("Initializing sensor " + String(i) + " failed with error " + bme[i].statusString());
+      DEBUG_PRINT("Initializing sensor " + String(i) + " failed with error " + bme[i].statusString());
       panicLeds();
     }
   }
     setSensorHeaters();
     logHeader = "";
     logFile = getLogFileName();
-    if (DEBUG) Serial.println("Path: " + logFile);
+    DEBUG_PRINT("Path: " + logFile);
 }
 
 /*!
@@ -168,7 +150,7 @@ void loop(void) {
           if (sensorData[i].status & BME68X_NEW_DATA_MSK) {
             indexDiff = (int16_t)sensorData[i].meas_index - (int16_t)lastMeasindex[i];
             if (indexDiff > 1) {
-              if (DEBUG) Serial.println("Skip I:" + String(i) +
+              DEBUG_PRINT("Skip I:" + String(i) +
                              ", DIFF:" + String(indexDiff) +
                              ", MI:" + String(sensorData[i].meas_index) +
                              ", LMI:" + String(lastMeasindex[i]) +
