@@ -154,5 +154,8 @@ void loop() {
     Serial.println();
     Serial.print("sleep for 5 minutes until next measurement is due");
     Serial.println();
-    delay(300000);
+
+    esp_sleep_enable_timer_wakeup((uint64_t)(1 * 60 * 1000 * 1000));
+    esp_deep_sleep_start();
+    // delay((int)(300000/5));
 }
