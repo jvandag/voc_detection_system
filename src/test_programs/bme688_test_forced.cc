@@ -66,8 +66,6 @@ void loop(void)
     for (uint8_t i = 0; i < num_sensors; i++) {
         if (bme[i].fetchData())
         {
-            bme[i].setOpMode(BME68X_FORCED_MODE);
-            delayMicroseconds(bme[i].getMeasDur()/num_sensors);
             bme[i].getData(data[i]);
             Serial.print("Sensor: " + String(i) + ", ");
             Serial.print(String(millis()) + ", ");
@@ -76,6 +74,9 @@ void loop(void)
             Serial.print(String(data[i].humidity) + ", ");
             Serial.print(String(data[i].gas_resistance) + ", ");
             Serial.println(data[i].status, HEX);
+
+            bme[i].setOpMode(BME68X_FORCED_MODE);
+            delayMicroseconds(bme[i].getMeasDur()/num_sensors);
         }
     }
 }
