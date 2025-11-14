@@ -1,10 +1,3 @@
-/**
- * Copyright (C) 2021 Bosch Sensortec GmbH
- *
- * SPDX-License-Identifier: BSD-3-Clause
- * 
- */
-
 #include "Arduino.h"
 #include "bme68xLibrary.h"
 #include "..\commMux\commMux.h"
@@ -43,10 +36,6 @@ void setup(void)
 
       /* Setting the default heater profile configuration */
     for (uint8_t i = 0; i < N_KIT_SENS; i++) {
-        bme[i].setTPH();
-        /* Heater temperature in degree Celsius as per the suggested heater profile
-        */
-
         /* Set the default configuration for temperature, pressure and humidity */
         bme[i].setTPH();
 
