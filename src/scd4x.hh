@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <SensirionI2cScd4x.h>
 #include <Wire.h>
-#include "feather_v2_config.h"
+#include "feather_v2_config.hh"
 
 // macro definitions
 // make sure that we use the proper definition of NO_ERROR
