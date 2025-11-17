@@ -95,14 +95,14 @@ void setup(void) {
     bme[i].setTPH();
     /* Heater temperature in degree Celsius as per the suggested heater profile
      */
-    uint16_t tempProf[10] = {320, 100, 100, 100, 200, 200, 200, 320, 320, 320};
-    /* Multiplier to the shared heater duration */
-    uint16_t mulProf[10] = {5, 2, 10, 30, 5, 5, 5, 5, 5, 5};
+    uint16_t tempProf[8] = {80, 80, 160, 160, 240, 240, 320, 320};
+    // Multipliers to shared heating duration for each heating step
+    uint16_t mulProf[8] = { 10,  10,   10,   10,   10,   10,   10,   10};
     /* Shared heating duration in milliseconds */
     uint16_t sharedHeatrDur =
         MEAS_DUR - (bme[i].getMeasDur(BME68X_PARALLEL_MODE) / INT64_C(1000));
 
-    bme[i].setHeaterProf(tempProf, mulProf, sharedHeatrDur, 10);
+    bme[i].setHeaterProf(tempProf, mulProf, sharedHeatrDur, 8);
 
     /* Parallel mode of sensor operation */
     bme[i].setOpMode(BME68X_PARALLEL_MODE);
@@ -163,7 +163,10 @@ void loop(void) {
             logHeader += sensorData[i].status & BME68X_HEAT_STAB_MSK;
             logHeader += "\r\n";
             newLogdata = true;
-            Serial.println(logHeader);
+            if ((sensorData[i].status & BME68X_GASM_VALID_MSK) && (sensorData[i].status & BME68X_HEAT_STAB_MSK)) {
+              Serial.println(logHeader);
+            }
+            // Serial.println(logHeader);
           }
         } while (nFieldsLeft);
       }
