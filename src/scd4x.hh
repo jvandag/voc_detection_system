@@ -1,3 +1,4 @@
+// CO2, Temperature, and Humidity sensor https://www.adafruit.com/product/5190
 #include <Arduino.h>
 #include <SensirionI2cScd4x.h>
 #include <Wire.h>
