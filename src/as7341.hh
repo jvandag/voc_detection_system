@@ -80,7 +80,7 @@ bool as7341_averaged_read(int (&read_arr)[10], int num_reads = 3) {
             for (int channel = 0; channel < 10; channel++) {
                 avg_arr[channel] += read[channel];
             }
-            delay(25);
+            delay(100);
         }
         else {
             Serial.print("##ALERT, Failed to call averaged_read as7341 for "  + String(CHAMBER_NAME));
