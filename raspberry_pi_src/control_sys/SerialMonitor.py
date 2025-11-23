@@ -4,6 +4,7 @@ import time
 import csv
 from serial.tools import list_ports
 from config.config_manager import settings
+from DiscordAlerts import send_discord_alert_webhook
 
 class SerialMonitor:
     """
@@ -21,6 +22,7 @@ class SerialMonitor:
         self.active_ports = {}
         self.lock = threading.Lock()
         self.running = False
+        self.last_readings = {}
 
     def read_from_port(self, port_name):
         try:
@@ -46,15 +48,33 @@ class SerialMonitor:
 
         if self.save_data:
             # Split the string into a list (assuming comma-separated values)
-            row = data.split(',')
-            file_path = f"test_file.csv"
-            # read first item in row to figure what the data is for.
-            # Open the file in append mode
-            with open(file_path, mode='a', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                writer.writerow(row)
-
-            print(f"Data appended to {file_path}")
+            row = data.split(', ')
+            match row[0]:
+                case "##PRESSURE":
+                    # check chamber has been addded by control system
+                    if self.last_readings.get(row[1], None) != None:
+                        self.last_readings[row[1]]["pressure"] = row[2]
+                    else: 
+                        print(f"Pressure reading recived for chamber \"{row[1]}\" but chamber is uninitialized.")
+                case "##READING":
+                    # check chamber has been addded by control system
+                    if self.last_readings.get(row[1], None) != None:
+                        self.last_readings[row[1]]["reading"] = row[2]
+                        # save reading to csv file specific to the chamber
+                        file_path = f"chamber_{row[1]}_readings.csv"
+                        with open(file_path, mode='a', newline='', encoding='utf-8') as file:
+                            writer = csv.writer(file)
+                            writer.writerow(row)
+                        print(f"Data appended to {file_path}")
+                    else: 
+                        print(f"Sensor reading(s) recived for chamber \"{row[1]}\" but chamber is uninitialized.")
+                case "##ALERT":
+                    # check chamber has been addded by control system
+                    if self.last_readings.get(row[1], None) != None:
+                        self.last_readings[row[1]]["alert"] = row[2]
+                        send_discord_alert_webhook(row[1], row[2])
+                    else: 
+                        print(f"Alert received for chamber \"{row[1]}\" but chamber is uninitialized.")
 
     def start_monitoring(self, monitor_interval: int = 2):
         if not self.running:
