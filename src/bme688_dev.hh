@@ -145,14 +145,13 @@ float average_array(const T (&values)[N], bool remove_max_min = true) {
     }
 }
 
-void bme68x_read_gas_sensors(float *avg_gas_res, float &avg_pressure) {
+bool bme68x_read_gas_sensors(float *avg_gas_res, float &avg_pressure) {
     DEBUG_PRINT("\nReading from BME688 sensor...");
     bme68xData data[N_KIT_SENS-NUM_PRES_SENSORS];
     float pressure_sum = 0;
     int num_pressure_reads = 0;
     // iterate through each heater profile
     for (uint8_t profile = 0; profile < 8; profile++) {
-        
         // iterate through each sensor and get NUM_GAS_READS readings for the each profile
         // then average to a single value
         for (int i = 0; i < NUM_GAS_READS; i++) {
@@ -167,7 +166,6 @@ void bme68x_read_gas_sensors(float *avg_gas_res, float &avg_pressure) {
                     dur = current_dur;
                 }
             }
-           
             delayMicroseconds(dur*16*MEASURE_DUR/500);
             for (uint8_t sensor = NUM_PRES_SENSORS; sensor < N_KIT_SENS; sensor++) {
                 bool sample_collected = false;
@@ -175,16 +173,15 @@ void bme68x_read_gas_sensors(float *avg_gas_res, float &avg_pressure) {
                     if (bme[sensor].fetchData()) {
                         bme[sensor].getData(data[sensor - NUM_PRES_SENSORS]);
                         #ifdef DEBUG
-                            Serial.print("Sensor: " + String(sensor) + ", ");
-                            Serial.print("Profile: " + String(profile) + ", ");
-                            Serial.print(String(millis()) + ", ");
-                            Serial.print(String(data[sensor - NUM_PRES_SENSORS].temperature) + ", ");
-                            Serial.print(String(data[sensor - NUM_PRES_SENSORS].pressure) + ", ");
-                            Serial.print(String(data[sensor - NUM_PRES_SENSORS].humidity) + ", ");
-                            Serial.print(String(data[sensor - NUM_PRES_SENSORS].gas_resistance) + ", ");
-                            Serial.println(data[sensor - NUM_PRES_SENSORS].status, HEX);
+                            // Serial.print("Sensor: " + String(sensor) + ", ");
+                            // Serial.print("Profile: " + String(profile) + ", ");
+                            // Serial.print(String(millis()) + ", ");
+                            // Serial.print(String(data[sensor - NUM_PRES_SENSORS].temperature) + ", ");
+                            // Serial.print(String(data[sensor - NUM_PRES_SENSORS].pressure) + ", ");
+                            // Serial.print(String(data[sensor - NUM_PRES_SENSORS].humidity) + ", ");
+                            // Serial.print(String(data[sensor - NUM_PRES_SENSORS].gas_resistance) + ", ");
+                            // Serial.println(data[sensor - NUM_PRES_SENSORS].status, HEX);
                         #endif // DEBUG
-                        
                         // Prepare data to be averaged, gas sensor reads have additional processing
                         profile_reads[sensor - NUM_PRES_SENSORS] = data[sensor - NUM_PRES_SENSORS].gas_resistance;
                         pressure_sum += data[sensor - NUM_PRES_SENSORS].pressure;
@@ -206,107 +203,103 @@ void bme68x_read_gas_sensors(float *avg_gas_res, float &avg_pressure) {
     }
     // average the sum of pressures 
     avg_pressure = pressure_sum / num_pressure_reads;
-}
-
-bool bme68x_read_gas_sensors_parallel(float *avg_gas_res, float &avg_pressure) {
-    DEBUG_PRINT("\nReading from BME688 sensor (parallel)...");
-    unsigned long timeout_time = millis() + MEASURE_TIMEOUT;
-    uint8_t nFieldsLeft = 0;
-    int16_t indexDiff;
-    bool newLogdata = false;
-    uint32_t assigned_mask = 0;
-    int n_samples_gathered = 0;
-    float samples[N_KIT_SENS-NUM_PRES_SENSORS][8][NUM_GAS_READS] = {-1.0};
-
-    for (uint8_t i = NUM_PRES_SENSORS; i < N_KIT_SENS; i++) {
-        bme[i].setOpMode(BME68X_PARALLEL_MODE);
-    }
-    delay(MEASURE_DUR);
-    while (n_samples_gathered <= ((N_KIT_SENS-NUM_PRES_SENSORS)*8*3)) {
-        if (millis() > timeout_time) {
-            DEBUG_PRINT("##ALERT, GAS MEASUREMENT TIMED OUT");
-            return false;
-        }
-        for (uint8_t i = NUM_PRES_SENSORS; i < N_KIT_SENS; i++) {
-            if (bme[i].fetchData()) {
-                do {
-                nFieldsLeft = bme[i].getData(sensorData[i]);
-                // DEBUG_PRINT("\nFetched fetched data for " + String(i) + ", num new fields: " + String(nFieldsLeft));
-                    /* Check if new data is received */
-                    if (sensorData[i].status & BME68X_NEW_DATA_MSK) {
-                        /* Inspect miss of data index */
-                        indexDiff =
-                            (int16_t)sensorData[i].meas_index - (int16_t)lastMeasindex[i];
-                        if (indexDiff > 1) {
-                            Serial.println("Skip I:" + String(i) +
-                                            ", DIFF:" + String(indexDiff) +
-                                            ", MI:" + String(sensorData[i].meas_index) +
-                                            ", LMI:" + String(lastMeasindex[i]) +
-                                            ", S:" + String(sensorData[i].status, HEX));
-                        }
-                        lastMeasindex[i] = sensorData[i].meas_index;
-
-                        #ifdef DEBUG
-                            logHeader =  "";
-                            logHeader += millis();
-                            logHeader += ",\ti:";
-                            logHeader += i;
-                            logHeader += ",\ttemp: ";
-                            logHeader += sensorData[i].temperature;
-                            logHeader += ",\tpress: ";
-                            logHeader += sensorData[i].pressure;
-                            logHeader += ",\thum: ";
-                            logHeader += sensorData[i].humidity;
-                            logHeader += ",\tgas_res: ";
-                            logHeader += sensorData[i].gas_resistance;
-                            logHeader += ",\tgas_index: ";
-                            logHeader += sensorData[i].gas_index;
-                            logHeader += ",\tmeas_index: ";
-                            logHeader += sensorData[i].meas_index;
-                            logHeader += ",\tidac: ";
-                            logHeader += sensorData[i].idac;
-                            logHeader += ",\tstatus: ";
-                            logHeader += String(sensorData[i].status, HEX);
-                            logHeader += ",\tgas_mask: ";
-                            logHeader += sensorData[i].status & BME68X_GASM_VALID_MSK;
-                            logHeader += ",\theat_stab_mask: ";
-                            logHeader += sensorData[i].status & BME68X_HEAT_STAB_MSK;
-                            logHeader += "\r\n";
-                            newLogdata = true;
-                            // DEBUG_PRINT(logHeader);
-                            if ((sensorData[i].status & BME68X_GASM_VALID_MSK) && (sensorData[i].status & BME68X_HEAT_STAB_MSK)) { //&& (sensorData[i].status & BME68X_HEAT_STAB_MSK)
-                                // expect status b0
-                                // DEBUG_PRINT("FLAGS: Status " + String(sensorData[i].status) + ", GAS " + String(BME68X_GASM_VALID_MSK) + ", Heat " + String(BME68X_HEAT_STAB_MSK));
-                                Serial.println(logHeader);
-                                n_samples_gathered += 1;
-                            }
-                        #endif // DEBUG
-
-                        // SAVE GAS DATA AT EACH MEASUREMENT INDEX AND AVERAGE PRESSURE 
-                        // AND HUMIDITY WITH DROP OUT FROM GREATEST AND SMALLEST SENSOR AVERAGE 
-                    }
-                } while (nFieldsLeft);
-            }
-            else {
-                // if no new samples delay to prevent using unnecessary processor time
-                delay(50);
-            }
-        }
-    }
-
-    // iterate through each heater profile step
-    for (uint16_t profile = 0; profile < 8; profile++) {
-         // iterate through each sensor used for gas
-        double profile_avgs[N_KIT_SENS-NUM_PRES_SENSORS] = {0};
-        for (uint8_t sensor = 0; sensor < N_KIT_SENS-NUM_PRES_SENSORS; sensor++) {
-            profile_avgs[sensor] = average_array(samples[sensor][profile], true);
-            // iterate through each sample taken for the profile on current sensor
-        }
-        avg_gas_res[profile] = average_array(profile_avgs, true);
-    }
-
     return true;
 }
+
+// bool bme68x_read_gas_sensors_parallel(float *avg_gas_res, float &avg_pressure) {
+//     DEBUG_PRINT("\nReading from BME688 sensor (parallel)...");
+//     unsigned long timeout_time = millis() + MEASURE_TIMEOUT;
+//     uint8_t nFieldsLeft = 0;
+//     int16_t indexDiff;
+//     bool newLogdata = false;
+//     uint32_t assigned_mask = 0;
+//     int n_samples_gathered = 0;
+//     float samples[N_KIT_SENS-NUM_PRES_SENSORS][8][NUM_GAS_READS] = {-1.0};
+//     for (uint8_t i = NUM_PRES_SENSORS; i < N_KIT_SENS; i++) {
+//         bme[i].setOpMode(BME68X_PARALLEL_MODE);
+//     }
+//     delay(MEASURE_DUR);
+//     while (n_samples_gathered <= ((N_KIT_SENS-NUM_PRES_SENSORS)*8*3)) {
+//         if (millis() > timeout_time) {
+//             Serial.print("##ALERT, " + String(CHAMBER_NAME) + " GAS MEASUREMENT TIMED OUT");
+//             return false;
+//         }
+//         for (uint8_t i = NUM_PRES_SENSORS; i < N_KIT_SENS; i++) {
+//             if (bme[i].fetchData()) {
+//                 do {
+//                 nFieldsLeft = bme[i].getData(sensorData[i]);
+//                 // DEBUG_PRINT("\nFetched fetched data for " + String(i) + ", num new fields: " + String(nFieldsLeft));
+//                     // Check if new data is received
+//                     if (sensorData[i].status & BME68X_NEW_DATA_MSK) {
+//                         // Inspect miss of data index
+//                         indexDiff =
+//                             (int16_t)sensorData[i].meas_index - (int16_t)lastMeasindex[i];
+//                         if (indexDiff > 1) {
+//                             Serial.println("Skip I:" + String(i) +
+//                                             ", DIFF:" + String(indexDiff) +
+//                                             ", MI:" + String(sensorData[i].meas_index) +
+//                                             ", LMI:" + String(lastMeasindex[i]) +
+//                                             ", S:" + String(sensorData[i].status, HEX));
+//                         }
+//                         lastMeasindex[i] = sensorData[i].meas_index;
+//                         #ifdef DEBUG
+//                             logHeader =  "";
+//                             logHeader += millis();
+//                             logHeader += ",\ti:";
+//                             logHeader += i;
+//                             logHeader += ",\ttemp: ";
+//                             logHeader += sensorData[i].temperature;
+//                             logHeader += ",\tpress: ";
+//                             logHeader += sensorData[i].pressure;
+//                             logHeader += ",\thum: ";
+//                             logHeader += sensorData[i].humidity;
+//                             logHeader += ",\tgas_res: ";
+//                             logHeader += sensorData[i].gas_resistance;
+//                             logHeader += ",\tgas_index: ";
+//                             logHeader += sensorData[i].gas_index;
+//                             logHeader += ",\tmeas_index: ";
+//                             logHeader += sensorData[i].meas_index;
+//                             logHeader += ",\tidac: ";
+//                             logHeader += sensorData[i].idac;
+//                             logHeader += ",\tstatus: ";
+//                             logHeader += String(sensorData[i].status, HEX);
+//                             logHeader += ",\tgas_mask: ";
+//                             logHeader += sensorData[i].status & BME68X_GASM_VALID_MSK;
+//                             logHeader += ",\theat_stab_mask: ";
+//                             logHeader += sensorData[i].status & BME68X_HEAT_STAB_MSK;
+//                             logHeader += "\r\n";
+//                             newLogdata = true;
+//                             DEBUG_PRINT(logHeader);
+//                             #endif // DEBUG
+//                             if ((sensorData[i].status & BME68X_GASM_VALID_MSK) && (sensorData[i].status & BME68X_HEAT_STAB_MSK)) { //&& (sensorData[i].status & BME68X_HEAT_STAB_MSK)
+//                                 // expect status b0
+//                                 // DEBUG_PRINT("FLAGS: Status " + String(sensorData[i].status) + ", GAS " + String(BME68X_GASM_VALID_MSK) + ", Heat " + String(BME68X_HEAT_STAB_MSK));
+//                                 DEBUG_PRINT(logHeader);
+//                                 n_samples_gathered += 1;
+//                             }
+//                         // SAVE GAS DATA AT EACH MEASUREMENT INDEX AND AVERAGE PRESSURE 
+//                         // AND HUMIDITY WITH DROP OUT FROM GREATEST AND SMALLEST SENSOR AVERAGE 
+//                     }
+//                 } while (nFieldsLeft);
+//             }
+//             else {
+//                 // if no new samples delay to prevent using unnecessary processor time
+//                 delay(50);
+//             }
+//         }
+//     }
+//     // iterate through each heater profile step
+//     for (uint16_t profile = 0; profile < 8; profile++) {
+//          // iterate through each sensor used for gas
+//         double profile_avgs[N_KIT_SENS-NUM_PRES_SENSORS] = {0};
+//         for (uint8_t sensor = 0; sensor < N_KIT_SENS-NUM_PRES_SENSORS; sensor++) {
+//             profile_avgs[sensor] = average_array(samples[sensor][profile], true);
+//             // iterate through each sample taken for the profile on current sensor
+//         }
+//         avg_gas_res[profile] = average_array(profile_avgs, true);
+//     }
+//     return true;
+// }
 
 /**
  * @brief Sets the first NUM_PRES_SENSORS on the BME688 dev board
@@ -354,7 +347,7 @@ void pressure_logger_task(void *pvParameters) {
         // Serial.print(String(data[i].gas_resistance) + ", ");
         // Serial.println(data[i].status, HEX);
         
-        Serial.println("##PRESSURE, " + String(data[i].pressure));
+        //Serial.println("##PRESSURE, " + String(data[i].pressure));
 
         bme[i].setOpMode(BME68X_FORCED_MODE);
         sens_delay = bme[i].getMeasDur()/NUM_PRES_SENSORS;
