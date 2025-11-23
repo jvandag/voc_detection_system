@@ -12,7 +12,7 @@ Adafruit_AS7341 as7341;
 
 void as7341_init() {
   if (!as7341.begin()){
-    Serial.print("##ALERT, Could not find AS7341 during init for chamber " + String(CHAMBER_NAME));
+    Serial.print("##ALERT, " + String(CHAMBER_NAME) + ", Could not find AS7341 during init.");
     
   }
   as7341.setATIME(100);
@@ -26,7 +26,7 @@ bool as7341_read_sensor(int (&read_arr)[10]) {
     as7341.enableLED(true);
     delay(10);
     if (!as7341.readAllChannels()){
-        Serial.print("##ALERT, Failed to call readAllChannels as7341 for chamber " + String(CHAMBER_NAME));
+        Serial.print("##ALERT, " + String(CHAMBER_NAME) + ", Failed to call readAllChannels as7341.");
         return false;
     }
     as7341.enableLED(false);
@@ -44,30 +44,30 @@ bool as7341_read_sensor(int (&read_arr)[10]) {
 
     #ifdef DEBUG
         // Print out the stored values for each channel
-        // Serial.print("F1 415nm/Violet   : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_415nm_F1));
-        // Serial.print("F2 445nm/Indigo   : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_445nm_F2));
-        // Serial.print("F3 480nm/Blue     : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_480nm_F3));
-        // Serial.print("F4 515nm/Cyan     : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_515nm_F4));
-        // Serial.print("F5 555nm/Green    : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_555nm_F5));
-        // Serial.print("F6 590nm/Yellow   : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_590nm_F6));
-        // Serial.print("F7 630nm/Orange   : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_630nm_F7));
-        // Serial.print("F8 680nm/Red      : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_680nm_F8));
+        Serial.print("F1 415nm/Violet   : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_415nm_F1));
+        Serial.print("F2 445nm/Indigo   : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_445nm_F2));
+        Serial.print("F3 480nm/Blue     : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_480nm_F3));
+        Serial.print("F4 515nm/Cyan     : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_515nm_F4));
+        Serial.print("F5 555nm/Green    : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_555nm_F5));
+        Serial.print("F6 590nm/Yellow   : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_590nm_F6));
+        Serial.print("F7 630nm/Orange   : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_630nm_F7));
+        Serial.print("F8 680nm/Red      : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_680nm_F8));
 
-        // Serial.print("Clear/White?      : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_CLEAR));
+        Serial.print("Clear/White?      : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_CLEAR));
 
-        // Serial.print("Near Infrared     : ");
-        // Serial.println(as7341.getChannel(AS7341_CHANNEL_NIR));
+        Serial.print("Near Infrared     : ");
+        Serial.println(as7341.getChannel(AS7341_CHANNEL_NIR));
 
-        // Serial.println("");
+        Serial.println("");
     #endif //DEBUG
     return true;
 }
@@ -83,7 +83,7 @@ bool as7341_averaged_read(int (&read_arr)[10], int num_reads = 3) {
             delay(100);
         }
         else {
-            Serial.print("##ALERT, Failed to call averaged_read as7341 for "  + String(CHAMBER_NAME));
+            Serial.print("##ALERT, " + String(CHAMBER_NAME) + ", Failed to call averaged_read as7341.");
             return false;
         }
     }
