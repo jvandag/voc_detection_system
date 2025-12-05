@@ -17,7 +17,7 @@ Cone mode lets you specify whole directories without complex patterns.
 
 **3.)** Select the folder you care about (e.g. path/to/folder). If you cloned you're cloning to your home directory, like recommended, this would be `~/voc_detection_system/raspberry_pi_src`:
 ```bash
-git sparse-checkout set ~/voc_detection_system/raspberry_pi_src
+git sparse-checkout set raspberry_pi_src
 ```
 Now your working tree will contain only that folder (and the usual .git/). 
 
@@ -30,3 +30,4 @@ You’ll see only `path/to/folder/` on disk, but Git still knows the full histor
 **Pulling:** `git pull` will fetch updates for the entire repo, but only update your sparse‑checked‑out folder in the working tree.
 
 **Pushing:** `git push` will only send the commits you’ve made (which affect only the sparse‑checked‑out folder) back to origin. You won’t inadvertently delete or modify other directories because you never checked them out or staged changes for them. 
+
