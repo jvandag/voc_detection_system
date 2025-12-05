@@ -7,8 +7,8 @@ import time
 import math
 import threading
 import RPi.GPIO as GPIO
-from config.config_manager import settings
 
+from ..config.config_manager import settings
 
 class LEDBreather:
     """
@@ -27,11 +27,11 @@ class LEDBreather:
                  steps=None,
                  max_duty=None):
         # Load settings with fallbacks
-        self.pin = pin or settings.get("LED_strip_GPIO_pin", 32)
-        self.pwm_freq = pwm_freq or settings.get("LED_strip_PWM_freq", 2500)
-        self.period = breathe_period or settings.get("LED_strip_breath_period", 5.0)
-        self.res = steps or settings.get("LED_strip_breath_res", 100)
-        self.max_duty = max_duty or settings.get("LED_strip_max_duty_cycle", 100)
+        self.pin = pin if pin is not None else settings.get("LED_strip_pin", 33)
+        self.pwm_freq = pwm_freq if pwm_freq is not None else settings.get("LED_strip_PWM_freq", 2500)
+        self.period = breathe_period if breathe_period is not None else settings.get("LED_strip_breath_period", 5.0)
+        self.res = steps if steps is not None else settings.get("LED_strip_breath_res", 100)
+        self.max_duty = max_duty if max_duty is not None else settings.get("LED_strip_max_duty_cycle", 100)
         
         # Precompute increments
         self.angle_step = 2 * math.pi / self.res
@@ -45,7 +45,7 @@ class LEDBreather:
         self._pwm = None
 
     def _setup_gpio(self):
-        GPIO.setmode(GPIO.BOARD)
+        GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
         GPIO.setup(self.pin, GPIO.OUT)
         self._pwm = GPIO.PWM(self.pin, self.pwm_freq)
@@ -62,10 +62,16 @@ class LEDBreather:
         """Internal run loop for breathing effect."""
         self._setup_gpio()
         angle = 0.0
+        mult = 0.7
+        epsilon = 1  
         try:
             while not self._stop_event.is_set():
-                # (1 - cos(angle)) / 2 scaled to max_duty
-                duty = (1 - math.cos(angle)) * 50 * (self.max_duty / 100)
+                duty = (abs(math.cos(angle))) * self.max_duty * mult
+                
+                # if duty < epsilon:
+                #     duty = epsilon
+                # elif duty > self.max_duty*mult - epsilon:
+                #     duty = self.max_duty*mult - epsilon
                 self._pwm.ChangeDutyCycle(duty)
 
                 angle = (angle + self.angle_step) % (2 * math.pi)
@@ -88,7 +94,7 @@ class LEDBreather:
             self._thread.join()
 
 
-if __name__ == "__main__":
+def main() -> int:
     breather = LEDBreather()
     try:
         print("Starting breathing effect. Press Ctrl+C to stop.")
@@ -100,3 +106,7 @@ if __name__ == "__main__":
         print("\nStopping...")
     finally:
         breather.stop()
+    return 0;
+
+if __name__ == "__main__": 
+    exit(main())

@@ -3,8 +3,7 @@ import threading
 import time
 import csv
 from serial.tools import list_ports
-from config.config_manager import settings
-from DiscordAlerts import send_discord_alert_webhook
+from ..config.config_manager import settings
 
 class SerialMonitor:
     """
@@ -22,25 +21,31 @@ class SerialMonitor:
         self.active_ports = {}
         self.lock = threading.Lock()
         self.running = False
-        self.last_readings = {}
+        self.monitor_thread = None
 
     def read_from_port(self, port_name):
+        ser = serial.Serial(port_name, self.baud_rate, timeout=0.2)  # shorter timeout to exit quickly
         try:
-            ser = serial.Serial(port_name, self.baud_rate, timeout=1)
             print(f"Started listening on {port_name}")
-            while True:
-                if not ser.is_open:
-                    break
+            while self.running and ser.is_open:
                 if ser.in_waiting:
                     line = ser.readline().decode('utf-8', errors='ignore').strip()
-                    self.parse_serial_msg(line)
+                    if line:
+                        self.parse_serial_msg(line)
+                else:
+                    time.sleep(0.01)  # avoid busy spin when no data
         except Exception as e:
             print(f"Error on {port_name}: {e}")
         finally:
+            try:
+                if 'ser' in locals() and ser.is_open:
+                    ser.close()
+            except Exception:
+                pass
             with self.lock:
-                if port_name in self.active_ports:
-                    del self.active_ports[port_name]
+                self.active_ports.pop(port_name, None)
             print(f"Stopped listening on {port_name}")
+
 
     def parse_serial_msg(self, data: str):
         if (self.print_msgs): print(f"{data}")
@@ -48,33 +53,15 @@ class SerialMonitor:
 
         if self.save_data:
             # Split the string into a list (assuming comma-separated values)
-            row = data.split(', ')
-            match row[0]:
-                case "##PRESSURE":
-                    # check chamber has been addded by control system
-                    if self.last_readings.get(row[1], None) != None:
-                        self.last_readings[row[1]]["pressure"] = row[2]
-                    else: 
-                        print(f"Pressure reading recived for chamber \"{row[1]}\" but chamber is uninitialized.")
-                case "##READING":
-                    # check chamber has been addded by control system
-                    if self.last_readings.get(row[1], None) != None:
-                        self.last_readings[row[1]]["reading"] = row[2]
-                        # save reading to csv file specific to the chamber
-                        file_path = f"chamber_{row[1]}_readings.csv"
-                        with open(file_path, mode='a', newline='', encoding='utf-8') as file:
-                            writer = csv.writer(file)
-                            writer.writerow(row)
-                        print(f"Data appended to {file_path}")
-                    else: 
-                        print(f"Sensor reading(s) recived for chamber \"{row[1]}\" but chamber is uninitialized.")
-                case "##ALERT":
-                    # check chamber has been addded by control system
-                    if self.last_readings.get(row[1], None) != None:
-                        self.last_readings[row[1]]["alert"] = row[2]
-                        send_discord_alert_webhook(row[1], row[2])
-                    else: 
-                        print(f"Alert received for chamber \"{row[1]}\" but chamber is uninitialized.")
+            row = data.split(',')
+            file_path = f"test_file.csv"
+            # read first item in row to figure what the data is for.
+            # Open the file in append mode
+            with open(file_path, mode='a', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                writer.writerow(row)
+
+            print(f"Data appended to {file_path}")
 
     def start_monitoring(self, monitor_interval: int = 2):
         if not self.running:
@@ -82,10 +69,18 @@ class SerialMonitor:
             self.monitor_thread = threading.Thread(target=self._monitor_ports, args=(monitor_interval,), daemon=True)
             self.monitor_thread.start()
 
-    def stop_monitoring(self):
+    def stop_monitoring(self, join_timeout=3.0):
         self.running = False
-        if self.monitor_thread is not None:
-            self.monitor_thread.join()
+        # Wait for monitor thread to exit
+        t = getattr(self, 'monitor_thread', None)
+        if t is not None:
+            t.join(timeout=join_timeout)
+        # Wait for per-port reader threads to exit
+        with self.lock:
+            threads = list(self.active_ports.values())
+        for th in threads:
+            th.join(timeout=join_timeout)
+
 
     def send_to_all_serial_ports(self, message: str, baudrate: int = 115200, timeout: float = 1.0):
         """
@@ -99,7 +94,7 @@ class SerialMonitor:
             timeout (`float`):
             Timeout for opening the serial port.
         """
-        ports = serial.tools.list_ports.comports()
+        ports = list_ports.comports()
         for port in ports:
             try:
                 with serial.Serial(port.device, baudrate=baudrate, timeout=timeout) as ser:
@@ -109,22 +104,27 @@ class SerialMonitor:
                 print(f"Failed to send to {port.device}: {e}")
         if (settings.get("DEBUG", False)): print(f"Sent \"{message}\" to all serial ports")
 
-    def _monitor_ports(self, monitor_interval = 2):
-        while True:
+    def _monitor_ports(self, monitor_interval=2):
+        while self.running:
             ports = [port.device for port in list_ports.comports()]
             with self.lock:
                 for port in ports:
                     if port not in self.active_ports:
-                        t = threading.Thread(target=self.read_from_port, args=(port,))
-                        t.daemon = True
+                        t = threading.Thread(target=self.read_from_port, args=(port,), daemon=True)
                         self.active_ports[port] = t
                         t.start()
             time.sleep(monitor_interval)  # Adjust scan interval as needed
 
+
 if __name__ == "__main__":
+    monitor = SerialMonitor()
     try:
         print("Starting Serial Monitor. Press Ctrl+C to stop.")
-        monitor = SerialMonitor()
-        monitor._monitor_ports()
+        monitor.start_monitoring()
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("Exiting...")
+        print("Stopping...")
+        monitor.stop_monitoring()
+        print("Exited.")
+

@@ -1,5 +1,6 @@
 import RPi.GPIO as GPIO
-from config.config_manager import settings
+from time import sleep
+from ..config.config_manager import settings
 
 
 class ShiftRegister:
@@ -23,34 +24,58 @@ class ShiftRegister:
         self.SRCLR = SRCLR or settings.get("valve_shift_reg_srclr_pin", None)
         self.OE = OE or settings.get("valve_shift_reg_oe_pin", None)
 
-        self.current_outputs = []
+        self.current_outputs = [0] * num_bits
         
-        self._initialize_gpio(gpio_mode)
+        self.settling_time = 0
+        
+        self._initialize_gpio()
         self.set_all_low()
     
     def write_bit(self, bit_num, level: int):
         if (self.OE != None): self._disable_shift_reg_outputs()
         GPIO.output(self.SRCLK, GPIO.LOW)
+        sleep(self.settling_time)
+        
         GPIO.output(self.RCLK, GPIO.LOW)
+        sleep(self.settling_time)
         self.current_outputs[bit_num] = level
-        for i in range (self.num_bits):
+        for i in range (self.num_bits-1, -1, -1): # reverse index 
             GPIO.output(self.SER, self.current_outputs[i])
+            sleep(self.settling_time)
+            
             GPIO.output(self.SRCLK, GPIO.HIGH)
+            sleep(self.settling_time)
+            
             GPIO.output(self.SRCLK, GPIO.LOW)
+            sleep(self.settling_time)
         self._commit()
         if (self.OE != None): self._enable_shift_reg_outputs()
+
 
     def overwrite_buffer(self, bit_nums: list):
         # sets the bits specified in the bit_nums list to high and every other bit to low
         if (self.OE != None): self._disable_shift_reg_outputs()
+        sleep(self.settling_time)
         GPIO.output(self.SRCLK, GPIO.LOW)
+        sleep(self.settling_time)
+        
         GPIO.output(self.RCLK, GPIO.LOW)
-        for i in range (self.num_bits):
-            GPIO.output(self.SER, GPIO.HIGH if i in bit_nums else GPIO.LOW)
+        sleep(self.settling_time)
+        # for i in range (self.num_bits):
+        for i in range (self.num_bits-1, -1, -1): # reverse index
+            bit_val = GPIO.HIGH if i in bit_nums else GPIO.LOW
+            self.current_outputs[i] = bit_val
+            GPIO.output(self.SER, bit_val)
+            sleep(self.settling_time)
+            
             GPIO.output(self.SRCLK, GPIO.HIGH)
+            sleep(self.settling_time)
+            
             GPIO.output(self.SRCLK, GPIO.LOW)
+            sleep(self.settling_time)
         self._commit()
         if (self.OE != None): self._enable_shift_reg_outputs()
+
 
     def set_all_low(self):
         """Sets all shift register outputs to low"""
@@ -58,37 +83,59 @@ class ShiftRegister:
             self._clear_shadow_registers()
             self._commit()
         else: self.overwrite_buffer(bit_nums=[]) # write nothing which will set all values low
-        self.current_outputs = []
+        self.current_outputs = [0] * self.num_bits
+
 
     def _initialize_gpio(self):
         for pin in [self.SER, self.SRCLK, self.RCLK, self.SRCLR]:
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
+            sleep(self.settling_time)
+        
+        GPIO.setup(self.SRCLR, GPIO.OUT, initial=GPIO.HIGH) # SRCLR is active low so writing high allows writting
+        sleep(self.settling_time)
         if self.OE != None:
             GPIO.setup(self.OE, GPIO.OUT, initial=GPIO.LOW)
+            sleep(self.settling_time)
+    
     
     def _disable_shift_reg_outputs(self):
         # disable all shift register outputs
         try:
             if (self.OE == None): raise ValueError(f"OE pin not provided")
             GPIO.output(self.OE, GPIO.LOW)
+            sleep(self.settling_time)
         except ValueError as e:
             print(f"ERROR: {e}")
+    
     
     def _enable_shift_reg_outputs(self):
         # enables shift reg outputs if they were disabled (enabled by default)
         try:
             if (self.OE == None): raise ValueError(f"OE pin not provided")
             GPIO.output(self.OE, GPIO.HIGH)
+            sleep(self.settling_time)
         except ValueError as e:
             print(f"ERROR: {e}")
+
 
     def _commit(self):
         # pushes values in shadow/storage registers to the output registers
         GPIO.output(self.RCLK, GPIO.LOW)
+        sleep(self.settling_time)
+        
         GPIO.output(self.RCLK, GPIO.HIGH)
+        sleep(self.settling_time)
+        
         GPIO.output(self.RCLK, GPIO.LOW)
+        sleep(self.settling_time)
+
 
     def _clear_shadow_registers(self):
-        GPIO.output(self.SRCLR, GPIO.LOW)
         GPIO.output(self.SRCLR, GPIO.HIGH)
+        sleep(self.settling_time)
+        
         GPIO.output(self.SRCLR, GPIO.LOW)
+        sleep(self.settling_time)
+        
+        GPIO.output(self.SRCLR, GPIO.HIGH)
+        sleep(self.settling_time)
