@@ -51,15 +51,15 @@ class SerialMonitor:
         if (self.print_msgs): print(f"{data}")
         # save to appropriate CSV based off of message
 
-        if self.save_data:
-            # Split the string into a list (assuming comma-separated values)
-            row = data.split(',')
-            file_path = f"test_file.csv"
-            # read first item in row to figure what the data is for.
-            # Open the file in append mode
-            with open(file_path, mode='a', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                writer.writerow(row)
+        # if self.save_data:
+        #     # Split the string into a list (assuming comma-separated values)
+        #     row = data.split(',')
+        #     file_path = f"test_file.csv"
+        #     # read first item in row to figure what the data is for.
+        #     # Open the file in append mode
+        #     with open(file_path, mode='a', newline='', encoding='utf-8') as file:
+        #         writer = csv.writer(file)
+        #         writer.writerow(row)
 
             print(f"Data appended to {file_path}")
 
@@ -115,8 +115,7 @@ class SerialMonitor:
                         t.start()
             time.sleep(monitor_interval)  # Adjust scan interval as needed
 
-
-if __name__ == "__main__":
+def main() -> int:
     monitor = SerialMonitor()
     try:
         print("Starting Serial Monitor. Press Ctrl+C to stop.")
@@ -127,4 +126,9 @@ if __name__ == "__main__":
         print("Stopping...")
         monitor.stop_monitoring()
         print("Exited.")
+        return 0;
+    return 0;
+
+if __name__ == "__main__": 
+    exit(main())
 

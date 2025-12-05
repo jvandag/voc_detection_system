@@ -7,12 +7,11 @@ from LEDStripController import LEDBreather
 from FanController import FanController
 import csv
 from config.config_manager import settings, save_settings
-# from  Demux import DEMUX
 from ShiftRegister import ShiftRegister
 from EnvironmentalChamber import EnvironmentalChamber
 
 class ControlSystem:
-    def __init__(self, vacuum_ctrl_pin: int = None, ambient_valve_pin: int = None):
+    def __init__(self, vacuum_ctrl_pin = None, ambient_valve_pin = None):
         GPIO.setmode(GPIO.BOARD)
         self.chambers: dict[str, EnvironmentalChamber] = {}
         # The queue for chamber groups that need to be purged (vacuum and flushed with gas)
@@ -98,16 +97,6 @@ class ControlSystem:
         if (settings.get("DEBUG", False)): print(f"Adding chamber \"{name}\" to slot {slot}")
         self.chambers[name] = EnvironmentalChamber(name=name, group=group, slot=slot, gas_valve_channel=gas_valve_channel, vac_valve_channel=vac_valve_channel)
 
-        # try:
-        #     if name in self.chambers:
-        #         raise KeyError(f"Tried to add chamber with name \"{name}\" when an existing chamber with that name already exists")
-        #     else:
-        #         self.chambers[name] = EnvironmentalChamber(name=name, group=group, slot=slot, gas_valve_channel=gas_valve_channel, vac_valve_channel=vac_valve_channel)
-        #         # GPIO.setup([gas_valve_pin, vac_valve_pin], GPIO.OUT, initial=GPIO.LOW)
-        #         # self.gas_pins.append(gas_valve_pin)
-        #         # self.vacuum_pins.append(vac_valve_pin)
-        #         return True
-        # except: return False
     
 
     def purge_chambers(self, chambers: list[EnvironmentalChamber]):

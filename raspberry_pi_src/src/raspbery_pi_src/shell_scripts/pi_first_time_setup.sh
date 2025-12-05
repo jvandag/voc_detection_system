@@ -7,6 +7,7 @@ source .venv/bin/activate
 pip install .
 sudo groupadd --system gpio
 sudo usermod -aG gpio "$USER"
+sudo usermod -aG dialout $USER
 echo 'KERNEL=="gpiomem", GROUP="gpio", MODE="0660"' \
   | sudo tee /etc/udev/rules.d/99-gpio.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
