@@ -18,7 +18,7 @@ Cone mode lets you specify whole directories without complex patterns.
 
 **3.)** Select the folder you care about (e.g. path/to/folder). If you cloned you're cloning to your home directory, like recommended, this would be `~/voc_detection_system/raspberry_pi_src`:
 ```bash
-git sparse-checkout set ~/voc_detection_system/raspberry_pi_src
+git sparse-checkout set raspberry_pi_src
 ```
 Now your working tree will contain only that folder (and the usual .git/). 
 
