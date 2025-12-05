@@ -31,3 +31,21 @@ You’ll see only `path/to/folder/` on disk, but Git still knows the full histor
 
 **Pushing:** `git push` will only send the commits you’ve made (which affect only the sparse‑checked‑out folder) back to origin. You won’t inadvertently delete or modify other directories because you never checked them out or staged changes for them. 
 
+
+
+
+# Uploading ESP32 Code
+
+### NOTE: When uploading to esp32 feather V2, make sure you don't have an existing serial monitor monitoring it's output, otherwise you may be unable to upload a new program.
+
+**Uploading programs other than main**
+```
+build_src_filter = ; specify alternate targets to main
+    ; +<*> ; add everything
+    ; -<test_programs/*> ; remove test programs from scope
+
+    ; uncomment to use test program
+    -<main.cpp>
+    -<test_programs/*>
+    +<test_programs/blinky.cpp>
+```
