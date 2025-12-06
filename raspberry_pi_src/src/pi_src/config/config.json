@@ -14,7 +14,7 @@
     "LED_strip_pin":               13,
     "LED_strip_PWM_freq":          2500,
     "LED_strip_breath_period":     10,
-    "LED_strip_breath_res":        500,
+    "LED_strip_breath_res":        1000,
     "LED_strip_max_duty_cycle":    100,
 
     "valve_shift_reg_ser_pin":      22,

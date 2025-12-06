@@ -5,17 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 dynamic = ["version"]
 name = "pi_src"
-
 dependencies=[
     "pyserial==3.5",
     "requests==2.32.5",
     "RPi.GPIO==0.7.1",
+    "pigpio==1.78"
 ]
 
 [project.scripts]
 main = "pi_src.main:__main__"
 led_breather = "pi_src.control_sys.LEDBreather:main"
-led_breather2 = "pi_src.control_sys.LEDStripController:main"
 system_test = "pi_src.system_test:main"
 serial_monitor = "pi_src.control_sys.SerialMonitor:main"
 

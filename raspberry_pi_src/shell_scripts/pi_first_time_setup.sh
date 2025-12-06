@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd ~/voc_detection_system/raspberry_pi_src
+cd /home/jeremiah/voc_detection_system/raspberry_pi_src
 
 # setup tailscale for easy ssh
 curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
@@ -21,53 +21,28 @@ sudo usermod -a -G dialout "$USER"
 sudo groupadd --system gpio
 sudo usermod -aG gpio "$USER"
 
-echo "Configuring hardware PWM on GPIO13 (header pin 33)..."
+echo 'KERNEL=="gpiomem", GROUP="gpio", MODE="0660"' \
+  | sudo tee /etc/udev/rules.d/99-gpio.rules
+sudo udevadm control --reload --reload-rules && sudo udevadm trigger
 
-# Must be run as root
+echo "Setting up pigpio for hardware PWM..."
+
+# Ensure we're root (drop 'sudo' inside the script)
 if [[ "$EUID" -ne 0 ]]; then
   echo "ERROR: This script must be run as root. Try: sudo $0"
   exit 1
 fi
 
-# Find the correct config.txt
-CONFIG_PATH=""
-if [[ -f /boot/firmware/config.txt ]]; then
-  CONFIG_PATH="/boot/firmware/config.txt"
-elif [[ -f /boot/config.txt ]]; then
-  CONFIG_PATH="/boot/config.txt"
-else
-  echo "ERROR: Could not find /boot/firmware/config.txt or /boot/config.txt"
-  exit 1
-fi
+# Install pigpio and Python bindings
+apt-get update
+apt-get install -y pigpio python3-pigpio
 
-echo "Using config file: $CONFIG_PATH"
-
-OVERLAY_LINE="dtoverlay=pwm-2chan,pin=13,func=4,pin2=19,func2=4"
-
-# Check if an overlay for pwm+pin=13 is already present
-if grep -Eq 'dtoverlay=pwm.*pin=13' "$CONFIG_PATH"; then
-  echo "PWM overlay for GPIO13 already present in $CONFIG_PATH. Skipping."
-else
-  echo "Adding PWM overlay for GPIO13 to $CONFIG_PATH..."
-  {
-    echo ""
-    echo "# Enable hardware PWM on GPIO13 (header pin 33) for LED breather"
-    echo "$OVERLAY_LINE"
-  } >> "$CONFIG_PATH"
-  echo "Overlay added."
-fi
-
-echo "Done configuring PWM. You must reboot for changes to take effect."
-echo "Run: sudo reboot"
+# Enable and start pigpiod so it's always running
+sudo systemctl enable pigpiod
+sudo systemctl start pigpiod
 
 
-echo 'KERNEL=="gpiomem", GROUP="gpio", MODE="0660"' \
-  | sudo tee /etc/udev/rules.d/99-gpio.rules
-sudo udevadm control --reload --reload-rules && sudo udevadm trigger
-
-REAL_PWM_DIR=$(readlink -f /sys/class/pwm/pwmchip0)
-sudo chgrp -R gpio "$REAL_PWM_DIR"
-sudo chmod -R g+rw "$REAL_PWM_DIR"
+echo "pigpio setup complete. You can now use LEDBreather without sudo."
 
 
 # Configure cron job to automatically launch control system script
