@@ -1,7 +1,7 @@
 import requests
 from ..config.config_manager import settings, save_settings
 
-def send_discord_alert_webhook(chamber: int, new_status: str) -> bool:
+def send_discord_alert_webhook(chamber: int | str, new_status: str) -> bool:
     """
     Sends a message to a Discord webhook URL.
 

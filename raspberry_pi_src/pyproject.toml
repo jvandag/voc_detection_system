@@ -14,7 +14,8 @@ dependencies=[
 
 [project.scripts]
 main = "raspbery_pi_src.main:__main__"
-led_breather = "raspbery_pi_src.control_sys.LEDStripController:main"
+led_breather = "raspbery_pi_src.control_sys.LEDBreather:main"
+led_breather2 = "raspbery_pi_src.control_sys.LEDStripController:main"
 system_test = "raspbery_pi_src.system_test:main"
 serial_monitor = "raspbery_pi_src.control_sys.SerialMonitor:main"
 
