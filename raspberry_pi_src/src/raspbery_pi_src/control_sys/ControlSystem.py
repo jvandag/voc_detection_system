@@ -1,17 +1,16 @@
 from queue import Queue
 from time import time
 import RPi.GPIO as GPIO
-import requests
-from SerialMonitor import SerialMonitor
-from LEDStripController import LEDBreather
-from FanController import FanController
-import csv
-from config.config_manager import settings, save_settings
-from ShiftRegister import ShiftRegister
-from EnvironmentalChamber import EnvironmentalChamber
+from .SerialMonitor import SerialMonitor
+from .LEDStripController import LEDBreather
+from .FanController import FanController
+from ..config.config_manager import settings, save_settings
+from .DiscordAlerts import send_discord_alert_webhook
+from .ShiftRegister import ShiftRegister
+from .EnvironmentalChamber import EnvironmentalChamber
 
 class ControlSystem:
-    def __init__(self, vacuum_ctrl_pin = None, ambient_valve_pin = None):
+    def __init__(self, vacuum_ctrl_pin: int = None, ambient_valve_pin: int = None):
         GPIO.setmode(GPIO.BOARD)
         self.chambers: dict[str, EnvironmentalChamber] = {}
         # The queue for chamber groups that need to be purged (vacuum and flushed with gas)
@@ -25,16 +24,6 @@ class ControlSystem:
         self.ambient_valve_pin = ambient_valve_pin  # Unutlized
 
         self.valve_shift_reg = ShiftRegister(num_bits=16)
-
-        # self.valve_demux = DEMUX(select_pins = settings.get("valve_demux_sel_pins"),
-        #                          signal_pin = settings.get("valve_demux_sig_pin"),
-        #                          FF_stored = True,
-        #                          FF_clk_pin = settings.get("valve_FF_clk_pin"))
-        
-        # self.chamber_status_demux = DEMUX(select_pins = settings.get("chamber_status_demux_sel_pins"),
-        #                                   signal_pin = settings.get("chamber_status_demux_sig_pin"),
-        #                                   FF_stored = True,
-        #                                   FF_clk_pin = settings.get("chamber_status_FF_clk_pin"))
 
         GPIO.setup(vacuum_ctrl_pin, GPIO.OUT, initial=GPIO.LOW)
         if ambient_valve_pin != None:
@@ -96,7 +85,22 @@ class ControlSystem:
         """
         if (settings.get("DEBUG", False)): print(f"Adding chamber \"{name}\" to slot {slot}")
         self.chambers[name] = EnvironmentalChamber(name=name, group=group, slot=slot, gas_valve_channel=gas_valve_channel, vac_valve_channel=vac_valve_channel)
+        self.serial_monitor.last_readings[name] = {
+            "pressure": None,
+            "reading": None,
+            "alert": None
+        }
 
+        # try:
+        #     if name in self.chambers:
+        #         raise KeyError(f"Tried to add chamber with name \"{name}\" when an existing chamber with that name already exists")
+        #     else:
+        #         self.chambers[name] = EnvironmentalChamber(name=name, group=group, slot=slot, gas_valve_channel=gas_valve_channel, vac_valve_channel=vac_valve_channel)
+        #         # GPIO.setup([gas_valve_pin, vac_valve_pin], GPIO.OUT, initial=GPIO.LOW)
+        #         # self.gas_pins.append(gas_valve_pin)
+        #         # self.vacuum_pins.append(vac_valve_pin)
+        #         return True
+        # except: return False
     
 
     def purge_chambers(self, chambers: list[EnvironmentalChamber]):
@@ -133,12 +137,13 @@ class ControlSystem:
         
         for chamber in gas_unmet: # disable chambers that were not able to reach pressure level (likely not sealed properly)
             self.disable_chamber(chamber, "DISABLED")
-            self.serial_monitor.send_to_all_serial_ports(f"#{chamber.slot}, DISABLED")
+            # self.serial_monitor.send_to_all_serial_ports(f"#{chamber.slot}, DISABLED")
+            send_discord_alert_webhook(chamber.slot, "Gas pressure not met!")
 
         for chamber in chambers:
             self.close_gas_valve(chamber=chamber)
             time.sleep(0.01)
-            self.serial_monitor.send_to_all_serial_ports(f"#{chamber.slot}, purge complete")
+            # self.serial_monitor.send_to_all_serial_ports(f"#{chamber.slot}, purge complete")
         if (settings.get("DEBUG", False)): print(f"Finished purging chambers {chambers}")
 
     def disable_chamber(self, chamber: EnvironmentalChamber, new_status: str):
@@ -231,7 +236,7 @@ class ControlSystem:
         if (self.ambient_valve_pin != None): GPIO.output(self.ambient_valve_pin, GPIO.LOW)
         if (settings.get("DEBUG", False)): print(f"Reset valve pins")
     
-    def wait_for_pressure_lvl(self, chambers: list[EnvironmentalChamber], pressure_lvl: int, low_pressure: bool, timeout: int) -> list[int]:
+    def wait_for_pressure_lvl(self, chambers: list[EnvironmentalChamber], pressure_lvl: int, low_pressure: bool, timeout: int) -> list[EnvironmentalChamber]:
         if (settings.get("DEBUG", False)): print(f"Waiting for {"low" if low_pressure else "high"} pressure")
         timeout_time = time.time() + timeout
         
@@ -239,58 +244,44 @@ class ControlSystem:
         # for chamber in chambers:
         #     pressure_unmet.append(chamber.slot)
         
-        file_path = f"control_data/pressure_log"
-        already_read = 0
+        # file_path = f"control_data/pressure_log"
+        # already_read = 0
         while timeout_time > time.time():
-            try:
-                with open(file_path, newline='') as csvfile:
-                    reader = list(csv.reader(csvfile))
-                    new_rows = reader[already_read:]
-                    for row in new_rows:
-                        slot = row[0] # should contain the chamber slot number
-                        pressure = row[1]
-                        current_chamber = next((chamber for chamber in chambers if chamber.slot == int(slot)), None)
-                        # low pressure bool indicates that we want pressure less than pressure level
-                        if (pressure < pressure_lvl and (current_chamber in pressure_unmet)) == low_pressure:
-                            pressure_unmet.remove(current_chamber)
-                            self.close_vacuum_valve(chamber=current_chamber)
-                            self.close_gas_valve(chamber=current_chamber)
-                    if len(pressure_unmet) == 0: return []
-                    already_read = len(reader)
-            except FileNotFoundError:
-                print("CSV file not found. Waiting...")
-            except Exception as e:
-                print(f"Error reading CSV: {e}")
+        #     try:
+        #         with open(file_path, newline='') as csvfile:
+        #             reader = list(csv.reader(csvfile))
+        #             new_rows = reader[already_read:]
+        #             for row in new_rows:
+        #                 slot = row[0] # should contain the chamber slot number
+        #                 pressure = row[1]
+        #                 current_chamber = next((chamber for chamber in chambers if chamber.slot == int(slot)), None)
+        #                 # low pressure bool indicates that we want pressure less than pressure level
+        #                 if (pressure < pressure_lvl and (current_chamber in pressure_unmet)) == low_pressure:
+        #                     pressure_unmet.remove(current_chamber)
+        #                     self.close_vacuum_valve(chamber=current_chamber)
+        #                     self.close_gas_valve(chamber=current_chamber)
+        #             if len(pressure_unmet) == 0: return []
+        #             already_read = len(reader)
+        #     except FileNotFoundError:
+        #         print("CSV file not found. Waiting...")
+        #     except Exception as e:
+                # print(f"Error reading CSV: {e}")
 
-            time.sleep(0.05)
+            for chamber in pressure_unmet:
+                pressure = self.serial_monitor.last_readings.get(chamber.name, {}).get("pressure", None)
+                # check that a presssure reading has been received since start up for the chamber
+                if pressure == None:
+                    print(f"No pressure reading for chamber \"{chamber.name}\"")
+                elif (pressure < pressure_lvl and low_pressure 
+                    or pressure > pressure_lvl and not low_pressure
+                    ) and chamber not in pressure_unmet:
+                    pressure_unmet.remove(chamber)
+                    self.close_vacuum_valve(chamber=chamber)
+                    self.close_gas_valve(chamber=chamber)
+                    if (settings.get("DEBUG", False)): print(f"Pressure met for chamber \"{chamber.name}\"")
+                    
+            if len(pressure_unmet) == 0: return []    
+                
+            time.sleep(0.01)
             if (settings.get("DEBUG", False)): print(f"Finished waiting for {"low" if low_pressure else "high"} pressure")
         return pressure_unmet
-
-
-def send_discord_alert_webhook(chamber: int, new_status: str) -> bool:
-    """
-    Sends a message to a Discord webhook URL.
-
-    Parameters:
-        chamber (`int`): 
-            The chamber slot number
-        new_status: (`str`): 
-            The new status of the chamber
-
-    Returns:
-        `bool`: True if the message was sent successfully, False otherwise.
-    """
-    wh = settings.get("discord_alert_webhook", False)
-    if not wh: return False
-
-    payload = {
-        "content": f"Chamber {chamber} status changed to {new_status}"
-    }
-    if (settings.get("DEBUG", False)): print(f"Sending \"{payload.content}\" to webhook {wh}")
-    try:
-        response = requests.post(wh, json=payload)
-        return response.status_code == 204  # Discord returns 204 No Content on success
-    except requests.exceptions.RequestException as e:
-        print(f"Error sending webhook: {e}")
-        return False
-    
