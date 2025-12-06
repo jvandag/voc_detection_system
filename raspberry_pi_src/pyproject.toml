@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 dynamic = ["version"]
-name = "raspbery_pi_src"
+name = "pi_src"
 
 dependencies=[
     "pyserial==3.5",
@@ -13,14 +13,14 @@ dependencies=[
 ]
 
 [project.scripts]
-main = "raspbery_pi_src.main:__main__"
-led_breather = "raspbery_pi_src.control_sys.LEDBreather:main"
-led_breather2 = "raspbery_pi_src.control_sys.LEDStripController:main"
-system_test = "raspbery_pi_src.system_test:main"
-serial_monitor = "raspbery_pi_src.control_sys.SerialMonitor:main"
+main = "pi_src.main:__main__"
+led_breather = "pi_src.control_sys.LEDBreather:main"
+led_breather2 = "pi_src.control_sys.LEDStripController:main"
+system_test = "pi_src.system_test:main"
+serial_monitor = "pi_src.control_sys.SerialMonitor:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-    "raspbery_pi_src" = ["config/*.json"]
+    "pi_src" = ["config/*.json"]
