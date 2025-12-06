@@ -4,6 +4,8 @@ sudo apt-get install python3-pip
 python3 -m venv ./.venv
 source .venv/bin/activate
 pip install -r requirements.txt
+sudo usermod -aG adm $USER
+sudo usermod -a -G dialout "$USER"
 sudo groupadd --system gpio
 sudo usermod -aG gpio "$USER"
 echo 'KERNEL=="gpiomem", GROUP="gpio", MODE="0660"' \
