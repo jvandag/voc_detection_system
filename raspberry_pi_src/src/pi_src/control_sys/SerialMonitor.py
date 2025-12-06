@@ -110,8 +110,8 @@ class SerialMonitor:
                         self.last_readings[col[1]]["alert"] = col[2]
                         send_discord_alert_webhook(col[1], col[2])
                     else:
-                        print(f"Alert received for chamber \"{col[1]}\" but chamber is uninitialized:\n\t{data}")
                         if settings.get("DEBUG", False):
+                            print(f"Alert received for chamber \"{col[1]}\" but chamber is uninitialized:\n\t{data}")
                             send_discord_alert_webhook(col[1], col[2])
 
     def start_monitoring(self, monitor_interval: int = 2):
