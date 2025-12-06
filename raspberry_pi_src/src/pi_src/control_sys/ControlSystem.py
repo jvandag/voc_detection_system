@@ -91,16 +91,6 @@ class ControlSystem:
             "alert": None
         }
 
-        # try:
-        #     if name in self.chambers:
-        #         raise KeyError(f"Tried to add chamber with name \"{name}\" when an existing chamber with that name already exists")
-        #     else:
-        #         self.chambers[name] = EnvironmentalChamber(name=name, group=group, slot=slot, gas_valve_channel=gas_valve_channel, vac_valve_channel=vac_valve_channel)
-        #         # GPIO.setup([gas_valve_pin, vac_valve_pin], GPIO.OUT, initial=GPIO.LOW)
-        #         # self.gas_pins.append(gas_valve_pin)
-        #         # self.vacuum_pins.append(vac_valve_pin)
-        #         return True
-        # except: return False
     
 
     def purge_chambers(self, chambers: list[EnvironmentalChamber]):
@@ -150,11 +140,8 @@ class ControlSystem:
         if settings.get("discord_alert_webhook", False): send_discord_alert_webhook(chamber, new_status)
         self.close_gas_valve(chamber=chamber)
         self.close_vacuum_valve(chamber=chamber)
-        # self.valve_demux.write(chamber.gas_valve_pin, GPIO.LOW)
-        # self.valve_demux.write(chamber.vac_valve_pin, GPIO.LOW)
         chamber.status = new_status # ERROR or DISABLED by convention
         # light up error light
-        #self.chamber_status_demux.write(2*chamber.slot, GPIO.HIGH)
         if (settings.get("DEBUG", False)): print(f"Disabled Chamber {chamber.slot} with status {new_status}")
     
     def turn_vacuum_on(self):
@@ -174,17 +161,14 @@ class ControlSystem:
             # close gas and vacuum valves if status is not normal
             self.close_gas_valve(chamber=chamber)
             self.close_vacuum_valve(chamber=chamber)
-            #self.valve_demux.write(chamber.gas_valve_pin, GPIO.LOW)
             print(f"Tried to open gas valve for chamber {chamber.slot} but chamber is in {chamber.status} state.")
         else: 
             self.valve_shift_reg.write_bit(bit_num=chamber.slot*2, level=GPIO.HIGH)
-            # self.valve_demux.write(chamber.gas_valve_pin, GPIO.HIGH)
             if (settings.get("DEBUG", False)): print(f"Chamber {chamber.slot} gas valve opened")
 
     def close_gas_valve(self, chamber: EnvironmentalChamber):
         """Closes the gas valve of the chamber"""
         self.valve_shift_reg.write_bit(bit_num=chamber.slot*2, level=GPIO.LOW)
-        # self.valve_demux.write(chamber.gas_valve_pin, GPIO.LOW)
         if (settings.get("DEBUG", False)): print(f"Chamber {chamber.slot} gas valve closed")
 
     
@@ -194,18 +178,15 @@ class ControlSystem:
             # close gas and vacuum valves if status is not normal
             self.close_gas_valve(chamber=chamber)
             self.close_vacuum_valve(chamber=chamber)
-            # self.valve_demux.write(chamber.vac_valve_pin, GPIO.LOW)
             print(f"Tried to open vac valve for chamber {chamber.slot} but chamber is in {chamber.status} state.")
         else: 
             self.valve_shift_reg.write_bit(bit_num=chamber.slot*2+1, level=GPIO.HIGH)
-            # self.valve_demux.write(chamber.vac_valve_pin, GPIO.HIGH)
             if (settings.get("DEBUG", False)): print(f"Chamber {chamber.slot} vac valve opened")
 
             
     def close_vacuum_valve(self, chamber: EnvironmentalChamber):
         """Closes the vacuum valve of the chamber"""
         self.valve_shift_reg.write_bit(bit_num=chamber.slot*2+1, level=GPIO.LOW)
-        # self.valve_demux.write(chamber.vac_valve_pin, GPIO.LOW)
         if (settings.get("DEBUG", False)): print(f"Chamber {chamber.slot} vac valve closed")
 
     
@@ -229,8 +210,6 @@ class ControlSystem:
         for chamber in self.chambers:
             self.close_gas_valve(chamber=chamber)
             self.close_vacuum_valve(chamber=chamber)
-            # self.valve_demux.write(chamber.gas_valve_pin, GPIO.LOW)
-            # self.valve_demux.write(chamber.vac_valve_pin, GPIO.LOW)
         
         GPIO.output(self.vacuum_ctrl_pin, GPIO.LOW)
         if (self.ambient_valve_pin != None): GPIO.output(self.ambient_valve_pin, GPIO.LOW)
@@ -247,25 +226,6 @@ class ControlSystem:
         # file_path = f"control_data/pressure_log"
         # already_read = 0
         while timeout_time > time.time():
-        #     try:
-        #         with open(file_path, newline='') as csvfile:
-        #             reader = list(csv.reader(csvfile))
-        #             new_rows = reader[already_read:]
-        #             for row in new_rows:
-        #                 slot = row[0] # should contain the chamber slot number
-        #                 pressure = row[1]
-        #                 current_chamber = next((chamber for chamber in chambers if chamber.slot == int(slot)), None)
-        #                 # low pressure bool indicates that we want pressure less than pressure level
-        #                 if (pressure < pressure_lvl and (current_chamber in pressure_unmet)) == low_pressure:
-        #                     pressure_unmet.remove(current_chamber)
-        #                     self.close_vacuum_valve(chamber=current_chamber)
-        #                     self.close_gas_valve(chamber=current_chamber)
-        #             if len(pressure_unmet) == 0: return []
-        #             already_read = len(reader)
-        #     except FileNotFoundError:
-        #         print("CSV file not found. Waiting...")
-        #     except Exception as e:
-                # print(f"Error reading CSV: {e}")
 
             for chamber in pressure_unmet:
                 pressure = self.serial_monitor.last_readings.get(chamber.name, {}).get("pressure", None)
