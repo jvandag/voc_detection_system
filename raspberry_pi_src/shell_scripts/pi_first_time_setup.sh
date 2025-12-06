@@ -6,7 +6,7 @@ sudo apt-get install python3-pip -y
 python3 -m venv ./.venv
 source .venv/bin/activate
 # pip install -r requirements.txt 
-pip install . 
+pip install ../ 
 sudo usermod -aG adm $USER
 sudo usermod -a -G dialout "$USER"
 sudo groupadd --system gpio
