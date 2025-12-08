@@ -1,7 +1,7 @@
 import RPi.GPIO as GPIO
 from time import sleep
 from ..config.config_manager import settings
-
+from typing import cast, Literal
 
 class ShiftRegister:
     """
@@ -13,34 +13,43 @@ class ShiftRegister:
                  SRCLK: int | None = None, # Serial Clock, shifts in the current SER value
                  RCLK: int | None = None, # Saves the shifted in values to the output when asserted high
                  OE: int | None = None, # active low, when asserted it leaves the previous out values in the register
-                          # until RCLK is asserted, otherwise outputs are low while shifting in
+                                        # until RCLK is asserted, otherwise outputs are low while shifting in
                  SRCLR: int | None = None, # active low, clears the shiftted in values when asserted
-                 gpio_mode = GPIO.BCM): # outputs the value that was in the N-th bit when SRCLK is asserted
+                 gpio_mode: Literal[10, 11] = GPIO.BCM): # outputs the value that was in the N-th bit when SRCLK is asserted
         
         self.num_bits = num_bits
-        self.SER = SER or settings.get("valve_shift_reg_ser_pin")
-        self.SRCLK = SRCLK or settings.get("valve_shift_reg_srclk_pin")
-        self.RCLK = RCLK or settings.get("valve_shift_reg_rclk_pin")
-        self.SRCLR = SRCLR or settings.get("valve_shift_reg_srclr_pin", None)
+        ser_value: int | None = SER or cast(int | None, settings.get("valve_shift_reg_ser_pin", None))
+        srclk_value: int | None = SRCLK or cast(int | None, settings.get("valve_shift_reg_srclk_pin", None))
+        rclk_value = RCLK or settings.get("valve_shift_reg_rclk_pin", 4)
+        srclr_value = SRCLR or cast(int | None, settings.get("valve_shift_reg_srclr_pin", None))
         self.OE = OE or settings.get("valve_shift_reg_oe_pin", None)
 
-        self.current_outputs = [0] * num_bits
+        self.gpio_mode: Literal[10, 11] = gpio_mode
+        self.current_outputs: list[int] = [0] * num_bits
         
         self.settling_time = 0
         
+        if (ser_value is None or srclk_value is None or srclr_value is None or srclk_value is None): 
+            raise TypeError("No pin values provided for essential shift register pins")
+        
+        self.SER = ser_value
+        self.SRCLK = srclk_value
+        self.RCLK = rclk_value
+        self.SRCLR = srclr_value
+
         self._initialize_gpio()
         self.set_all_low()
     
     def write_bit(self, bit_num, level: int):
         if (self.OE != None): self._disable_shift_reg_outputs()
+
         GPIO.output(self.SRCLK, GPIO.LOW)
         sleep(self.settling_time)
-        
         GPIO.output(self.RCLK, GPIO.LOW)
         sleep(self.settling_time)
         self.current_outputs[bit_num] = level
         for i in range (self.num_bits-1, -1, -1): # reverse index 
-            GPIO.output(self.SER, self.current_outputs[i])
+            GPIO.output(self.SER, bool(self.current_outputs[i]))
             sleep(self.settling_time)
             
             GPIO.output(self.SRCLK, GPIO.HIGH)
@@ -87,6 +96,8 @@ class ShiftRegister:
 
 
     def _initialize_gpio(self):
+        GPIO.setmode(self.gpio_mode)
+        # GPIO.setwarnings(False)
         for pin in [self.SER, self.SRCLK, self.RCLK, self.SRCLR]:
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
             sleep(self.settling_time)
