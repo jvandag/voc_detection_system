@@ -9,7 +9,7 @@ def _load() -> dict:
     with open(CONFIG_PATH, "r") as f:
         return json.load(f)
 
-def save_settings():
+def  save_settings():
     """Write the current settings dict back to the json file"""
     with open(CONFIG_PATH, "w") as f:
         json.dump(settings, f, indent=2)
