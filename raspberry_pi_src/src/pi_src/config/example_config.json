@@ -1,49 +1,36 @@
 {
-    "DEBUG": 1,
-    "serial_monitor_baud_rate": 115200,
-
-    "power_on_LED_pin":    4,
-    "vacuum_ctrl_pin":     8,
-    "ambient_valve_pin":  -1,
-
-    "fan_pin":              5,
-    "fan_on_temp_thresh":   55.0,
-    "fan_off_temp_thresh":  52.0,
-    "fan_temp_poll_rate":   2,
-
-    "LED_strip_pin":               13,
-    "LED_strip_PWM_freq":          2500,
-    "LED_strip_breath_period":     10,
-    "LED_strip_breath_res":        1000,
-    "LED_strip_max_duty_cycle":    100,
-
-    "valve_shift_reg_ser_pin":      22,
-    "valve_shift_reg_srclk_pin":    17,
-    "valve_shift_reg_rclk_pin":     4,
-    "valve_shift_reg_srclr_pin":    27,
-
-
-
-    "valve_demux_sel_pins":     [5, 6, 13, -1],
-    "valve_demux_sig_pin":      12,
-    "valve_FF_clk_pin":        -1,    
-
-    "chamber_status_demux_sel_pins":  [18, 17, 27, 22],
-    "chamber_status_demux_sig_pin":    23,
-    "chamber_status_FF_clk_pin":       24,
-
-    
-    "chamber_groups": {
-        "1": {
-            "last_purge":           0,
-            "purge_interval_s":     86400
-        }
+  "DEBUG": 1,
+  "serial_monitor_baud_rate": 115200,
+  "power_on_LED_pin": 4,
+  "vacuum_ctrl_pin": 8,
+  "ambient_valve_pin": -1,
+  "fan_pin": 5,
+  "fan_on_temp_thresh": 65.0,
+  "fan_off_temp_thresh": 50.0,
+  "fan_temp_poll_rate": 2,
+  "LED_strip_pin": 13,
+  "LED_strip_PWM_freq": 2500,
+  "LED_strip_breath_period": 10,
+  "LED_strip_breath_res": 1000,
+  "LED_strip_max_duty_cycle": 100,
+  "valve_shift_reg_ser_pin": 22,
+  "valve_shift_reg_srclk_pin": 17,
+  "valve_shift_reg_rclk_pin": 4,
+  "valve_shift_reg_srclr_pin": 27,
+  "chamber_groups": {
+    "1": {
+      "last_purge": 0,
+      "purge_interval_s": 86400
     },
-
-    "vac_pressure": -1,
-    "vac_timeout":  -1,
-    "gas_pressure": -1,
-    "gas_timeout":  -1,
-
-    "discord_alert_webhook": ""
+    "Test 1": {
+      "last_purge": 0,
+      "purge_interval_s": 120
+    }
+  },
+  "disabled_chambers": [],
+  "vac_pressure": 4040,
+  "vac_timeout": 15,
+  "gas_pressure": 101000,
+  "gas_timeout": 10,
+  "discord_alert_webhook": ""
 }
