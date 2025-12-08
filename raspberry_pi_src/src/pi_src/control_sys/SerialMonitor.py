@@ -97,7 +97,10 @@ class SerialMonitor:
                     if self.last_readings.get(col[1], None) is not None:
                         self.last_readings[col[1]]["reading"] = col[2]
                         # save reading to csv file specific to the chamber
-                        file_path = f"chamber_{col[1]}_readings.csv"
+                        file_path = f"data/chamber_{col[1]}_readings.csv"
+                        
+                        # replace the reading flag with a timestamp
+                        col[0] = str(int(time.time()))
                         with open(file_path, mode='a', newline='', encoding='utf-8') as file:
                             writer = csv.writer(file)
                             writer.writerow(col)
