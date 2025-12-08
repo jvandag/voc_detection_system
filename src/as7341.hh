@@ -42,7 +42,7 @@ bool as7341_read_sensor(int (&read_arr)[10]) {
     read_arr[8] = as7341.getChannel(AS7341_CHANNEL_CLEAR);
     read_arr[9] = as7341.getChannel(AS7341_CHANNEL_NIR);
 
-    #ifdef DEBUG
+    #if defined(DEBUG) && DEBUG
         // Print out the stored values for each channel
         Serial.print("F1 415nm/Violet   : ");
         Serial.println(as7341.getChannel(AS7341_CHANNEL_415nm_F1));
@@ -61,7 +61,7 @@ bool as7341_read_sensor(int (&read_arr)[10]) {
         Serial.print("F8 680nm/Red      : ");
         Serial.println(as7341.getChannel(AS7341_CHANNEL_680nm_F8));
 
-        Serial.print("Clear/White?      : ");
+        Serial.print("Clear/White       : ");
         Serial.println(as7341.getChannel(AS7341_CHANNEL_CLEAR));
 
         Serial.print("Near Infrared     : ");
