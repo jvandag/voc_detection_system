@@ -347,7 +347,7 @@ void pressure_logger_task(void *pvParameters) {
         // Serial.print(String(data[i].gas_resistance) + ", ");
         // Serial.println(data[i].status, HEX);
         
-        //Serial.println("##PRESSURE, " + String(data[i].pressure));
+        Serial.println("##PRESSURE, " + String(data[i].pressure));
 
         bme[i].setOpMode(BME68X_FORCED_MODE);
         sens_delay = bme[i].getMeasDur()/NUM_PRES_SENSORS;
