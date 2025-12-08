@@ -126,11 +126,11 @@ class LEDBreather:
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
-    def stop(self):
+    def stop(self, join_timeout: float = 3.0):
         """Signal the breathing effect to stop and wait for cleanup."""
         self._stop_event.set()
         if self._thread:
-            self._thread.join()
+            self._thread.join(timeout=join_timeout)
         # Optionally close pigpio connection if this class "owns" it
         if self._pi is not None:
             self._pi.stop()
