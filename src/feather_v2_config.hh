@@ -14,7 +14,7 @@
 #define MISO      21  
 #define SCK       5
 
-/*Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3,
+/*Chip Select pin for SD interface, pin 10 on adafruit esp32-s3,
 pin 33 on adafruit esp32 V2*/
 #define CS        33
 
