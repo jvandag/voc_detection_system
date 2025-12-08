@@ -18,7 +18,7 @@ def send_discord_alert_webhook(chamber: int | str, new_status: str) -> bool:
     if not wh: return False
 
     payload = {
-        "content": f"Chamber {chamber} status changed to {new_status}"
+        "content": f"Chamber {chamber} {new_status}"
     }
     try:
         if (settings.get("DEBUG", False)): print(f'Sending "{payload["content"]}" to webhook {wh}')
