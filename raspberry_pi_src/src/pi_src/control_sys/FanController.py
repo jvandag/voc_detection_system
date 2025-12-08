@@ -10,6 +10,7 @@ import threading
 import time
 import subprocess
 import RPi.GPIO as GPIO
+from typing import Literal
 
 from ..config.config_manager import settings
 
@@ -40,7 +41,7 @@ class FanController:
                  on_thresh=None,
                  off_thresh=None,
                  poll_rate=None,
-                 gpio_mode=GPIO.BCM):
+                 gpio_mode: Literal[10, 11]=GPIO.BCM):
         # Load defaults from config if not provided
         self.fan_pin = fan_pin if fan_pin is not None else settings.get("fan_pin", 32)
         self.on_thresh = on_thresh if on_thresh is not None else settings.get("fan_on_temp_thresh", 0.0)
@@ -77,7 +78,7 @@ class FanController:
 
     def _run_loop(self, use_thresh=True):
         if use_thresh:
-            while True:
+            while self.running:
                 temp, state = self.update()
                 off = self.off_thresh if self.off_thresh is not None else self.on_thresh
                 print(f"CPU Temp: {temp:.2f}°C, thresholds on={self.on_thresh:.1f}, off={off:.1f} -> Fan {'ON' if state else 'OFF'}")
@@ -94,10 +95,10 @@ class FanController:
                     self.thread = threading.Thread(target=self._run_loop, args=(use_thresh,), daemon=True)
                     self.thread.start()
 
-    def stop(self):
+    def stop(self, join_timeout: float = 3.0):
         self.running = False
         if self.thread is not None:
-            self.thread.join()
+            self.thread.join(timeout=join_timeout)
         GPIO.output(self.fan_pin, GPIO.LOW)
         print("Fan controller stopped and GPIO cleaned up.")
         # GPIO.cleanup()  # Uncomment if you want to reset all GPIO pin
