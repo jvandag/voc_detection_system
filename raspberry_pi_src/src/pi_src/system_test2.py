@@ -11,10 +11,10 @@ def main() -> int:
     print("starting")
     try:
         chamber_list = {    
-            "Light Roast":  {"group": "Test 2", "slot": 1},
-            "Medium Roast": {"group": "Test 1", "slot": 2},
-            "Dark Roast":   {"group": "Test 1", "slot": 3},
-            "1":            {"group": "Test 1", "slot": 4}
+            "1":            {"group": "Test 1", "slot": 1},
+            "Light Roast":  {"group": "Test 2", "slot": 2},
+            "Medium Roast": {"group": "Test 1", "slot": 3},
+            "Dark Roast":   {"group": "Test 1", "slot": 4}
             }
         
         # Initialize control system
