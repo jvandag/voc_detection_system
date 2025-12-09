@@ -78,7 +78,6 @@ class SerialMonitor:
         if self.print_msgs:
             print(f"{data}")
         # save to appropriate CSV based off of message
-
         if self.save_data:
             # Split the string into a list (assuming comma-and-space-separated values)
             col = data.split(', ')
@@ -91,7 +90,7 @@ class SerialMonitor:
                     if self.last_readings.get(col[1], None) is not None:
                         self.last_readings[col[1]]["pressure"] = col[2]
                     else:
-                        print(f"Pressure reading recived for chamber \"{col[1]}\" but chamber is uninitialized.")
+                        if (settings.get("DEBUG", False)): print(f"Pressure reading recived for chamber \"{col[1]}\" but chamber is uninitialized.")
                 case "##READING":
                     # check chamber has been added by control system
                     if self.last_readings.get(col[1], None) is not None:
