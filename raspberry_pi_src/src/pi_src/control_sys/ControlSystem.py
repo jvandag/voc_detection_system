@@ -50,12 +50,15 @@ class ControlSystem:
             while(True):
                 next_purge_time = 0
                 next_purge_group = None
+                chambers = []
                 for group in self.groups:
+                    chambers = [c for c in self.chambers.values() if c.group == group]
+                    if not chambers:
+                        continue
                     if next_purge_time == 0 or (self.groups[group]["last_purge"] + self.groups[group]["purge_interval_s"]) < next_purge_time:
                         next_purge_time = self.groups[group]["last_purge"] + self.groups[group]["purge_interval_s"]
                         next_purge_group = group
-                if time.time() > next_purge_time:
-                    chambers = [c for c in self.chambers.values() if c.group == next_purge_group]
+                if time.time() > next_purge_time and next_purge_group != None:
                     self.groups[next_purge_group]["last_purge"] = time.time() if len(chambers) != 0 else 0
                     # purge twice
                     self.purge_chambers(chambers=chambers)
@@ -96,7 +99,7 @@ class ControlSystem:
         
 
     def purge_chambers(self, chambers: list[EnvironmentalChamber]):
-        if (settings.get("DEBUG", False)): print(f"Purging chambers {chambers}")
+        if (settings.get("DEBUG", False)): print(f"Purging chambers in slots {[c.chamber_slot for c in chambers]}")
         # Send a message to the chamber being purged so that it stops gatherint data while it's being purged
         # May need to send an initial wake message 
         
@@ -126,7 +129,9 @@ class ControlSystem:
         self.turn_vacuum_off()
         for chamber in vac_unmet: # disable chambers that were not able to reach pressure level (likely not sealed properly)
             self.disable_chamber(chamber, "DISABLED")
-            self.serial_monitor.send_to_all_serial_ports(f"#{chamber.chamber_slot}, DISABLED")
+            active_chambers.remove(chamber)
+            # self.serial_monitor.send_to_all_serial_ports(f"#{chamber.chamber_slot}, DISABLED")
+            send_discord_alert_webhook(chamber.chamber_slot, "Vacuum pressure not met!")
 
         time.sleep(1)
         
@@ -139,12 +144,13 @@ class ControlSystem:
         
         for chamber in gas_unmet: # disable chambers that were not able to reach pressure level (likely not sealed properly)
             self.disable_chamber(chamber, "DISABLED")
+            active_chambers.remove(chamber)
             # self.serial_monitor.send_to_all_serial_ports(f"#{chamber.slot}, DISABLED")
             send_discord_alert_webhook(chamber.chamber_slot, "Gas pressure not met!")
 
         for chamber in active_chambers:
             self.close_gas_valve(chamber=chamber)
-            self.serial_monitor.send_to_all_serial_ports(f"#{chamber.chamber_slot}, purge complete")
+            # self.serial_monitor.send_to_all_serial_ports(f"#{chamber.chamber_slot}, purge complete")
         if (settings.get("DEBUG", False)): print(f"Finished purging chambers {[chamber.name for chamber in active_chambers]}")
 
     def disable_chamber(self, chamber: EnvironmentalChamber, new_status: str):
@@ -196,7 +202,7 @@ class ControlSystem:
             self.valve_shift_reg.write_bit(bit_num=(chamber.chamber_slot-1)*2+1, level=GPIO.HIGH)
             if (settings.get("DEBUG", False)): print(f"Chamber {chamber.chamber_slot} vac valve opened")
 
-            
+ 
     def close_vacuum_valve(self, chamber: EnvironmentalChamber):
         """Closes the vacuum valve of the chamber"""
         self.valve_shift_reg.write_bit(bit_num=(chamber.chamber_slot-1)*2+1, level=GPIO.LOW)
@@ -236,7 +242,11 @@ class ControlSystem:
         
         while timeout_time > time.time():
             for chamber in pressure_unmet:
-                pressure = self.serial_monitor.last_readings.get(chamber.name, {}).get("pressure", None)
+                if (pressure := self.serial_monitor.last_readings.get(chamber.name, {}).get("pressure", None)) is not None:
+                    try:
+                        pressure = float(pressure)
+                    except (TypeError, ValueError):
+                        pressure = None
                 # check that a presssure reading has been received since start up for the chamber
                 if (chamber.status != "NORMAL"):
                     if (settings.get("DEBUG", False)): 
@@ -244,11 +254,12 @@ class ControlSystem:
                              Ceasing presssure check for chamber.""")
                     pressure_unmet.remove(chamber)
                 elif pressure == None:
-                    print(f"""No pressure reading for chamber \"{chamber.name}\"",
+                    if (settings.get("DEBUG", False)): 
+                        print(f"""No pressure reading for chamber \"{chamber.name}\"",
                           \nWaiting on a {"low" if low_pressure else "high"} pressure threshold.""")
                 elif (pressure < pressure_lvl and low_pressure 
                     or pressure > pressure_lvl and not low_pressure
-                    ) and chamber not in pressure_unmet:
+                    ) and chamber in pressure_unmet:
                     pressure_unmet.remove(chamber)
                     self.close_vacuum_valve(chamber=chamber)
                     self.close_gas_valve(chamber=chamber)
