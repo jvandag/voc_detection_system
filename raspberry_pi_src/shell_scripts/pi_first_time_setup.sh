@@ -8,6 +8,8 @@ curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg | sudo te
 curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
 sudo apt-get update -y
 sudo apt-get install tailscale -y
+sudo systemctl enable tailscaled
+sudo systemctl start tailscaled
 sudo tailscale up # comment out if you don't want to use tailscale
 
 sudo apt-get install tmux -y
