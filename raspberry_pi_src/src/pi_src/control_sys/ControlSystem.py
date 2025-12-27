@@ -46,7 +46,7 @@ class ControlSystem:
             self.serial_monitor.start_monitoring()
             self.led_strip_controller.start()
             self.fan_controller.run()
-            # added queue parsing logic here
+            
             while(True):
                 next_purge_time = 0
                 next_purge_group = None
@@ -77,6 +77,8 @@ class ControlSystem:
     def shut_sys_down(self):
         '''Kills all threads, closes all valves, and turns off the vacuum pump by setting all GPIO pins to LOW'''
         self.reset_valve_pins()
+        time.sleep(0.2)
+        self.turn_vacuum_off()
         self.serial_monitor.stop_monitoring()
         self.led_strip_controller.stop()
         self.fan_controller.stop()
@@ -86,6 +88,15 @@ class ControlSystem:
         """
         Initializes a chamber and adds it to the list of chambers for the system to control
         """
+        
+        for _, chamber in self.chambers.items():
+            if chamber.chamber_slot == slot:
+                print(f"Tried to add chamber \"{name}\" to slot {slot}, but a chamber is configured for that slot.")
+                return
+            if chamber.name == name:
+                print(f"Tried to add chamber \"{name}\" to slot {slot}, but a chamber with the same name is already configured.")  
+                return
+            
         if (settings.get("DEBUG", False)): print(f"Adding chamber \"{name}\" to slot {slot}")
         self.chambers[name] = EnvironmentalChamber(name=name, group=group, chamber_slot=slot)
         if slot not in settings["disabled_chambers"]:
