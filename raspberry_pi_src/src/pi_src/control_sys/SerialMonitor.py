@@ -27,6 +27,7 @@ class SerialMonitor:
         self.running = False
         self.last_readings = {}
         self.monitor_thread = None
+        self.ignore_next_reading = {}
 
     def read_from_port(self, port_name):
         ser = None
@@ -75,7 +76,7 @@ class SerialMonitor:
             print(f"Stopped listening on {port_name}")
 
     def parse_serial_msg(self, data: str):
-        if self.print_msgs:
+        if self.print_msgs or True:
             print(f"{data}")
         # save to appropriate CSV based off of message
         if self.save_data:
@@ -90,10 +91,15 @@ class SerialMonitor:
                     if self.last_readings.get(col[1], None) is not None:
                         self.last_readings[col[1]]["pressure"] = col[2]
                     else:
-                        if (settings.get("DEBUG", False)): print(f"Pressure reading recived for chamber \"{col[1]}\" but chamber is uninitialized.")
+                        #if (settings.get("DEBUG", False)): print(f"Pressure reading recived for chamber \"{col[1]}\" but chamber is uninitialized.")
+                        pass
                 case "##READING":
                     # check chamber has been added by control system
                     if self.last_readings.get(col[1], None) is not None:
+                        if self.ignore_next_reading.get(col[1], False):
+                            self.ignore_next_reading[col[1]] = False
+                            if (settings.get("DEBUG", False)): print(f"Ignoring sensor reading for chamber \"{col[1]}\"")
+                            return
                         self.last_readings[col[1]]["reading"] = col[2]
                         # save reading to csv file specific to the chamber
                         file_path = f"data/chamber_{col[1]}_readings.csv"

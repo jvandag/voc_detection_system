@@ -110,8 +110,10 @@ class ControlSystem:
         
 
     def purge_chambers(self, chambers: list[EnvironmentalChamber]):
+        #  Ignore the next reading from the passed in chambers to avoid sampling during purge
+        self.serial_monitor.ignore_next_reading |= {chamber.name: True for chamber in chambers}
         if (settings.get("DEBUG", False)): print(f"Purging chambers in slots {[c.chamber_slot for c in chambers]}")
-        # Send a message to the chamber being purged so that it stops gatherint data while it's being purged
+        # Send a message to the chamber being purged so that it stops gathering data while it's being purged
         # May need to send an initial wake message 
         
         active_chambers = [chamber for chamber in chambers if chamber.status == "NORMAL"]
