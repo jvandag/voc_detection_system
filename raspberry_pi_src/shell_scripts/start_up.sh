@@ -36,7 +36,7 @@ if tmux has-session -t ctrl_sys; then
   exit 1
 fi
 
-tailscale up --operator=$USER # comment out if you don't want to use tailscale
+# tailscale up --operator=$USER # comment out if you don't want to use tailscale
 
 
 # Start a new tmux session named 'ctrl_sys' and start the first command
