@@ -1,34 +1,9 @@
 # voc_detection_system
 
-<style>
-    .hint{ 
-        transition: transform .15s ease,
-        color .15s ease,
-        text-shadow .15s ease;
-    }
-    .hint:hover{
-        color: #000;
-        transform: scale(1.0);
-        text-shadow:0 2px 10px rgba(51, 51, 51, 0.25);
-    }
-  
-    .section_header {
-        font-size: 2em;
-        font-weight: 700;
-        line-height: 1.2;
-        margin-left: -1.15em;
-    }
-
-    .sub_header {
-        font-size: 1.5em;
-        line-height: 1.2;
-        margin-left: -1.25em;
-    }
-
-    details {
-        margin-left: 1.65em;
-    }
-</style>
+<p align="center">
+  <img width="256" src="CAD_files/laser_cutter/COATL-2.pdf" />
+</p>
+<h2 align="center">CO4TL Lab Environmental Chamber</h4>
 
 ***lab logo here***
 
@@ -46,51 +21,59 @@ This system is made up of three main parts:
 
 <details>
 <summary class="hint section_header">
-    Setting up the Raspberry Pi <i style="color: gray; font-size: 0.5em; vertical-align: middle;">(click to expand)</i>
+
+## Setting up the Raspberry Pi $\color{gray}(click \space to \space expand)$
 </summary>
 
+> [!NOTE]
+> It is recommended highly recommended that you install <u>Pi OS</u> over other OS options. Some modules, [LEDBreather](raspberry_pi_src\src\pi_src\control_sys\LEDBreather.py) in particular, may not work otherwise.
 
-It is recommended highly recommended that you install <u>Pi OS</u> over other OS options. Some modules, [LEDBreather](raspberry_pi_src\src\pi_src\control_sys\LEDBreather.py) in particular, may not work otherwise.
-
-It is recommended to use a spare check out of the "raspberry_pi_src" folder on the raspberry pi. Doing so avoids copying several files and requirements not used on the raspberry pi.
+> [!TIP]
+> It is recommended to use a spare check out of the "raspberry_pi_src" folder on the raspberry pi. Doing so avoids copying several files and requirements not used on the raspberry pi.
 
 <details>
- <summary class="sub_header"> <b>How to sparse check out <i style="color: gray">(click to expand)</i></b> </summary>
+ <summary class="sub_header"> 
+ 
+ ### How to sparse check out $\color{gray}(click \space to \space expand)$ 
+ </summary>
 
 <!-- ### How to sparse check out: -->
-**1.)** Initialize an empty clone (no files checked out yet):
-```bash
-git clone --no-checkout https://github.com/jvandag/voc_detection_system
-cd voc_detection_system
-```
-
-**2.)** Enable sparse‑checkout in "cone" mode:
-```bash
-git sparse-checkout init --cone
-```
-Cone mode lets you specify whole directories without complex patterns. 
-
-**3.)** Select the folder you care about (e.g. path/to/folder). If you cloned you're cloning to your home directory, like recommended, this would be `voc_detection_system/raspberry_pi_src`:
-```bash
-git sparse-checkout set raspberry_pi_src
-```
-Now your working tree will contain only that folder (and the usual .git/). 
-
-**4.)** Switch to the branch you want (likely main in this case):
-```bash
-git checkout main
-```
-You’ll see only `path/to/folder/` on disk, but Git still knows the full history. 
-
-**Pulling:** `git pull` will fetch updates for the entire repo, but only update your sparse‑checked‑out folder in the working tree.
-
-**Pushing:** `git push` will only send the commits you’ve made (which affect only the sparse‑checked‑out folder) back to origin. You won’t inadvertently delete or modify other directories because you never checked them out or staged changes for them. 
-
-<hr>
-</details>
+> **1.)** Initialize an empty clone (no files checked out yet):
+> ```bash
+> git clone --no-checkout https://github.com/jvandag/voc_detection_system
+> cd voc_detection_system
+> ```
+> 
+> **2.)** Enable sparse‑checkout in "cone" mode:
+> ```bash
+> git sparse-checkout init --cone
+> ```
+> Cone mode lets you specify whole directories without complex patterns. 
+> 
+> **3.)** Select the folder you care about (e.g. path/to/folder). If you cloned you're cloning to your home directory, > like recommended, this would be `voc_detection_system/raspberry_pi_src`:
+> ```bash
+> git sparse-checkout set raspberry_pi_src
+> ```
+> Now your working tree will contain only that folder (and the usual .git/). 
+> 
+> **4.)** Switch to the branch you want (likely main in this case):
+> ```bash
+> git checkout main
+> ```
+> You’ll see only `path/to/folder/` on disk, but Git still knows the full history. 
+> 
+> **Pulling:** `git pull` will fetch updates for the entire repo, but only update your sparse‑checked‑out folder in the > working tree.
+> 
+> **Pushing:** `git push` will only send the commits you’ve made (which affect only the sparse‑checked‑out folder) back > to origin. You won’t inadvertently delete or modify other directories because you never checked them out or staged > changes for them. 
+> 
+> <hr>
+> </details>
 
 ### Initializing Raspberry Pi
 Once you've cloned the repo to the pi, you can initialize the project by navigating to the repo and running the following commands
+
+> [!IMPORTANT]
+> Python version 3.9 or higher is required to ensure all scripts run correctly
 
 ```bash
 cd raspberry_pi_src/src/pi_src/shell_scripts
@@ -100,13 +83,52 @@ This will install necessary dependancies, configure user permissions, setup your
 
 This start up scripts ensures that a there is a cron job configured to push gathered data to the git repo and start the control system.
 
-A reboot is necessary after running the first time setup script:
-
-```bash
-sudo reboot
-```
+> [!NOTE]
+> A reboot is necessary after running the first time setup script:
+>```bash
+>sudo reboot
+>```
 
 ### Configuring the Pi Control System (Chamber Setup)
+
+Once the Pi is configured and all the dependencies are installed, you're ready to configure the control system for the chambers to match your specific experimental setup.
+
+Here is an example configuration for the control system
+
+**Main.py:**
+```py
+    try:
+        # Initialize control system
+        control_sys = ControlSystem()
+    except Exception as e:
+        print(f"Error initializing Control System: {e}")
+        return 1
+    try:
+        # specify each chamber and their corresponding groups
+        chamber_list = {    
+            "Matcha":       {"group": "Test 1", "slot": 1},
+            "Light Roast":  {"group": "Test 2", "slot": 2},
+            "Medium Roast": {"group": "Test 1", "slot": 3},
+            "Dark Roast":   {"group": "Test 1", "slot": 4}
+            }
+        
+        # add chambers to the control system's active chambers
+        print("Adding Chambers")
+        for name, kwargs in chamber_list.items():
+            control_sys.add_chamber(name, **kwargs)
+        
+        # start the system
+        control_sys.run_sys()
+        
+    except KeyboardInterrupt:
+        print("\nKeyboard Interupt, Gracefully Stopping...")
+        control_sys.shut_sys_down()
+        return 0
+```
+
+The entry name for the `chamber_list` dictionary should match the name sent by the microcontroller (ESP32) in the corresponding chamber. Each chamber's group should match one of the chamber groups specified by the `chamber_groups` parameter in the `config.json`. The slot corresponds to the physical location of the chamber on the test bench, noted by the laser etched C1 through C6 in the laser cutter design for the top of the test bench.
+
+**config.json:**
 
 <hr>
 </details>
