@@ -32,5 +32,6 @@
   "vac_timeout": 15,
   "gas_pressure": 101000,
   "gas_timeout": 10,
+  "flush_time_ms": 5.0,
   "discord_alert_webhook": ""
 }

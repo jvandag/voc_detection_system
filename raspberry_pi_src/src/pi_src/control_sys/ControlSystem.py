@@ -10,10 +10,10 @@ from .ShiftRegister import ShiftRegister
 from .EnvironmentalChamber import EnvironmentalChamber
 
 class ControlSystem:
-    def __init__(self):
+    def __init__(self, flush_mode: bool = False):
         GPIO.setmode(GPIO.BCM)
         self.chambers: dict[str, EnvironmentalChamber] = {}
-        # The queue for chamber groups that need to be purged (vacuum and flushed with gas)
+        # The queue for chamber groups that need to be purged or flushed (vacuum and flushed with gas)
         self.purge_queue = Queue()
 
         self.groups = settings.get("chamber_groups", {})
@@ -24,7 +24,11 @@ class ControlSystem:
         self.ambient_valve_pin = settings.get("ambient_valve_pin", None) # Unutlized
         if self.ambient_valve_pin == -1: self.ambient_valve_pin = None
         
-
+        # If true, the control system will flush the chambers instead of purge
+        self.flush_mode = flush_mode
+        # How long chamber flushs last in seconds
+        self.flush_time = settings.get("flush_time_s", 5)
+        
         self.valve_shift_reg = ShiftRegister(num_bits=16)
 
         GPIO.setup(self.vacuum_ctrl_pin, GPIO.OUT, initial=GPIO.LOW)
@@ -60,9 +64,14 @@ class ControlSystem:
                         next_purge_group = group
                 if time.time() > next_purge_time and next_purge_group != None:
                     self.groups[next_purge_group]["last_purge"] = time.time() if len(chambers) != 0 else 0
-                    # purge twice
-                    self.purge_chambers(chambers=chambers)
-                    self.purge_chambers(chambers=chambers)
+                    
+                    if (self.flush_mode):
+                        self.flush_chambers(chambers=chambers)
+                    else:
+                        # purge twice
+                        self.purge_chambers(chambers=chambers)
+                        self.purge_chambers(chambers=chambers)
+                        
                     settings["chamber_groups"] = self.groups
                     save_settings()
                 else:
@@ -113,8 +122,6 @@ class ControlSystem:
         #  Ignore the next reading from the passed in chambers to avoid sampling during purge
         self.serial_monitor.ignore_next_reading |= {chamber.name: True for chamber in chambers}
         if (settings.get("DEBUG", False)): print(f"Purging chambers in slots {[c.chamber_slot for c in chambers]}")
-        # Send a message to the chamber being purged so that it stops gathering data while it's being purged
-        # May need to send an initial wake message 
         
         active_chambers = [chamber for chamber in chambers if chamber.status == "NORMAL"]
         if len(active_chambers) == 0:
@@ -166,6 +173,51 @@ class ControlSystem:
             # self.serial_monitor.send_to_all_serial_ports(f"#{chamber.chamber_slot}, purge complete")
         if (settings.get("DEBUG", False)): print(f"Finished purging chambers {[chamber.name for chamber in active_chambers]}")
 
+    
+    def flush_chambers(self, chambers: list[EnvironmentalChamber]):
+        """
+        Pushes gas into the chambers for a set interval while the vacuum value is open as an exit valve
+        Ran with the assumption that the vaccum valve is connected to open air rather than a pump
+        """
+        #  Ignore the next reading from the passed in chambers to avoid sampling during flush
+        self.serial_monitor.ignore_next_reading |= {chamber.name: True for chamber in chambers}
+        if (settings.get("DEBUG", False)): print(f"Flushing chambers in slots {[c.chamber_slot for c in chambers]}")
+
+        active_chambers = [chamber for chamber in chambers if chamber.status == "NORMAL"]
+        if len(active_chambers) == 0:
+            print(f"Tried to flush chambers in slots {[c.chamber_slot for c in chambers]} but no chambers were in NORMAL state.")
+            return
+        else:
+            disabled_chambers = [chamber for chamber in chambers if chamber.status == "DISABLED"]
+            print(f"Tried to flush the following disabled chambers {[c.chamber_slot for c in disabled_chambers]}")
+            
+        
+        for chamber in active_chambers:
+            self.serial_monitor.send_to_all_serial_ports(f"#{chamber.chamber_slot}, flushing")
+            time.sleep(0.01)
+            # open both valves
+            self.open_vacuum_valve(chamber=chamber)
+            self.open_gas_valve(chamber=chamber)
+            # wait designated flush period
+            time.sleep(self.flush_time)
+            # close valves, closing gas first to prevent pressurization
+            self.close_gas_valve(chamber=chamber)
+            time.sleep(0.25)
+            self.close_vacuum_valve(chamber=chamber)
+            
+        for chamber in active_chambers:
+            time.sleep(0.01)
+            # Close both valves
+            self.close_gas_valve(chamber=chamber)
+            self.close_vacuum_valve(chamber=chamber)
+            time.sleep(self.flush_time)
+        
+        time.sleep(0.25)
+    
+        if (settings.get("DEBUG", False)): print(f"Finished flushing chambers {[chamber.name for chamber in active_chambers]}")
+
+        
+        
     def disable_chamber(self, chamber: EnvironmentalChamber, new_status: str):
         send_discord_alert_webhook(chamber.name, new_status)
         self.close_gas_valve(chamber=chamber)
