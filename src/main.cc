@@ -82,15 +82,16 @@ void loop() {
   as7341_averaged_read(avg_frequency_vals, 3);
 
   // Send sensor readings over serial to be picked up by another devices (Raspbery Pi)
-  Serial.printf("##READING, "
-    "%s,"                   // Chamber Name
-    "%f, %f, %f, %f, "      // BME688 readings row 1
-    "%f, %f, %f, %f, %f, "  // BME688 readings row 2
-    "%f, %f, %f, "          // SCD30 readings
-    "%u, %f, %f, "          // SCD41 readings
-    "%d, %d, %d, "          // AS7341 readings row 1
-    "%d, %d, %d, "          // AS7341 readings row 2
-    "%d, %d, %d, %d",       // AS7341 readings row 3
+  // Note, this message must be under the UART fifo buffer size (256 bytes for esp32 wroom and many other microcontrollers)
+  Serial.printf("##READING,"
+    "%s,"                       // Chamber Name
+    "%.2f,%.2f,%.2f,%.2f,"      // BME688 readings row 1
+    "%.2f,%.2f,%.2f,%.2f,%.2f," // BME688 readings row 2
+    "%.2f,%.2f,%.2f,"           // SCD30 readings
+    "%u,%.2f,%.2f,"             // SCD41 readings
+    "%d,%d,%d,"                 // AS7341 readings row 1
+    "%d,%d,%d,"                 // AS7341 readings row 2
+    "%d,%d,%d,%d",              // AS7341 readings row 3
     CHAMBER_NAME,
     avg_gas_res[0], avg_gas_res[1], avg_gas_res[2], avg_gas_res[3], // BME688 Readings
     avg_gas_res[4], avg_gas_res[5], avg_gas_res[6], avg_gas_res[7], avg_pressure, // BME688 Readings
