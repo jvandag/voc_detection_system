@@ -14,7 +14,7 @@
 SensirionI2cScd4x scd4x;
 
 static char errorMessage[64];
-static int16_t error;
+// static int16_t error;
 
 static int16_t call_and_check_error(int16_t error_status, String caller_identifier) {
     if (error_status != NO_ERROR) {
@@ -38,7 +38,7 @@ void scd4x_init() {
     */
     scd4x.begin(Wire, SCD41_I2C_ADDR_62);
 
-    uint64_t serialNumber = 0;
+    // uint64_t serialNumber = 0;
     delay(30);
     // Ensure sensor is in clean state
     call_and_check_error(scd4x.wakeUp(), "wakeUp()");
