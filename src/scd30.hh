@@ -41,7 +41,6 @@ bool scd30_init() {
 
 bool scd30_averaged_read(float &co2_ppm, float &temp_cel, float &rel_hum, int num_readings = 3) {
     int readings_collected = 0;
-    DEBUG_PRINT("avg 1");
     do {
         if (scd30.dataReady()) {
             DEBUG_PRINT("Data available!");
@@ -49,12 +48,10 @@ bool scd30_averaged_read(float &co2_ppm, float &temp_cel, float &rel_hum, int nu
                 DEBUG_PRINT("Error reading sensor data");
                 return false;
             }
-            DEBUG_PRINT("Avg 2");
             // gather new readings and add them to the running average for each reading
             co2_ppm = ((co2_ppm * readings_collected) + scd30.CO2) / (readings_collected + 1);
             temp_cel = ((temp_cel * readings_collected) + scd30.temperature) / (readings_collected + 1);
             rel_hum = ((rel_hum * readings_collected) + scd30.relative_humidity) / (readings_collected + 1);
-            DEBUG_PRINT("Avg 3");
             readings_collected += 1;
 
             #ifdef DEBUG
@@ -76,13 +73,12 @@ bool scd30_averaged_read(float &co2_ppm, float &temp_cel, float &rel_hum, int nu
 
                 Serial.println("");
             #endif
-            DEBUG_PRINT("Avg 4");
         } else {
             DEBUG_PRINT("SCD30 no new data");
         }
 
         delay(1000); // delay a second waiting for new data
         } while (readings_collected <= num_readings);
-    DEBUG_PRINT("Avg 5");
+        
     return true;
 }
