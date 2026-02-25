@@ -85,10 +85,10 @@ void loop() {
   // Note, this message must be under the UART fifo buffer size (256 bytes for esp32 wroom and many other microcontrollers)
   Serial.printf("##READING,"
     "%s,"                       // Chamber Name
-    "%.2f,%.2f,%.2f,%.2f,"      // BME688 readings row 1
-    "%.2f,%.2f,%.2f,%.2f,%.2f," // BME688 readings row 2
-    "%.2f,%.2f,%.2f,"           // SCD30 readings
-    "%u,%.2f,%.2f,"             // SCD41 readings
+    "%.1f,%.1f,%.1f,%.1f,"      // BME688 readings row 1
+    "%.1f,%.1f,%.1f,%.1f,%.1f," // BME688 readings row 2
+    "%.1f,%.1f,%.1f,"           // SCD30 readings
+    "%u,%.1f,%.1f,"             // SCD41 readings
     "%d,%d,%d,"                 // AS7341 readings row 1
     "%d,%d,%d,"                 // AS7341 readings row 2
     "%d,%d,%d,%d",              // AS7341 readings row 3
