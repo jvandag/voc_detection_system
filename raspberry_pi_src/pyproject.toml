@@ -14,7 +14,7 @@ dependencies=[
 ]
 
 [project.scripts]
-main = "pi_src.main:__main__"
+env_chambers = "pi_src.main:main"
 led_breather = "pi_src.control_sys.LEDBreather:main"
 system_test = "pi_src.system_test:main"
 system_test2 = "pi_src.system_test2:main"
