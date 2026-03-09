@@ -91,7 +91,7 @@ class ControlSystem:
         self.serial_monitor.stop_monitoring()
         self.led_strip_controller.stop()
         self.fan_controller.stop()
-        GPIO.cleanup()
+        # GPIO.cleanup() # call if you need the pins for other applications
      
     def add_chamber(self, name: str, group: str, slot: int):
         """
@@ -196,21 +196,15 @@ class ControlSystem:
             self.serial_monitor.send_to_all_serial_ports(f"#{chamber.chamber_slot}, flushing")
             time.sleep(0.01)
             # open both valves
-            self.open_vacuum_valve(chamber=chamber)
+            self.open_vacuum_valve(chamber=chamber) # open open exhaust path first to prevent pressure spike
+            time.sleep(0.25)
             self.open_gas_valve(chamber=chamber)
             # wait designated flush period
             time.sleep(self.flush_time)
             # close valves, closing gas first to prevent pressurization
             self.close_gas_valve(chamber=chamber)
             time.sleep(0.25)
-            self.close_vacuum_valve(chamber=chamber)
-            
-        for chamber in active_chambers:
-            time.sleep(0.01)
-            # Close both valves
-            self.close_gas_valve(chamber=chamber)
-            self.close_vacuum_valve(chamber=chamber)
-            time.sleep(self.flush_time)
+            self.close_vacuum_valve(chamber=chamber) # close exhaust path last to prevent pressurizing chamber
         
         time.sleep(0.25)
     
