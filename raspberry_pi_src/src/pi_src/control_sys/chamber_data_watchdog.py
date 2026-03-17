@@ -24,6 +24,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 FILENAME_PATTERN = re.compile(r"^chamber_([a-zA-Z0-9]+)_readings\.csv$")
 DEFAULT_MAX_AGE_SECONDS = 10 * 60
 
+errored_paths = []
+
 
 def extract_chamber_key(file_path: Path) -> Optional[str]:
     match = FILENAME_PATTERN.match(file_path.name)
@@ -61,18 +63,14 @@ def run_check(data_dir: Path, max_age_seconds: int) -> int:
     now_epoch = int(time.time())
     candidate_files = sorted(data_dir.glob("chamber_*_readings.csv"))
     files = [file_path for file_path in candidate_files if extract_chamber_key(file_path) is not None]
-    if not files:
-        print(f"[INFO] No files matching the correct naming scheme found in {data_dir}. Exiting.")
-        return 0
-
-    print(f"[START] Watching {len(files)} file(s):")
-    for file_path in files:
-        print(f"  - {file_path.name}")
 
     failed_alerts = 0
     alerts_sent = 0
 
     for file_path in files:
+        if file_path.name in errored_paths: 
+            continue
+        
         chamber_key = extract_chamber_key(file_path)
 
         last_timestamp = read_last_epoch_timestamp(file_path)
@@ -82,7 +80,7 @@ def run_check(data_dir: Path, max_age_seconds: int) -> int:
 
         age_seconds = now_epoch - last_timestamp
         if age_seconds <= max_age_seconds:
-            print(f"[OK] {file_path.name}: last update {age_seconds}s ago")
+            # print(f"[OK] {file_path.name}: last update {age_seconds}s ago")
             continue
 
         error_message = (
@@ -92,13 +90,12 @@ def run_check(data_dir: Path, max_age_seconds: int) -> int:
         if success:
             alerts_sent += 1
             print(f"[ALERT] Sent stale-data alert for chamber '{chamber_key}'")
+            errored_paths.append(file_path.name)
         else:
             failed_alerts += 1
             print(f"[ERROR] Failed to send alert for chamber '{chamber_key}'")
 
-    print(
-        f"[DONE] Files checked: {len(files)}, alerts sent: {alerts_sent}, alert failures: {failed_alerts}"
-    )
+    # print(f"[DONE] Files checked: {len(files)}, alerts sent: {alerts_sent}, alert failures: {failed_alerts}")
     return 1 if failed_alerts else 0
 
 
@@ -122,12 +119,24 @@ def main() -> int:
 
     args = parser.parse_args()
     data_dir = args.data_dir.resolve()
+    
+    candidate_files = sorted(data_dir.glob("chamber_*_readings.csv"))
+    files = [file_path for file_path in candidate_files if extract_chamber_key(file_path) is not None]
+    if not files:
+        print(f"[INFO] No files matching the correct naming scheme found in {data_dir}. Exiting.")
+        return 0
 
-    if not data_dir.exists() or not data_dir.is_dir():
-        print(f"[ERROR] Data directory does not exist: {data_dir}")
-        return 1
-
-    return run_check(data_dir=data_dir, max_age_seconds=args.max_age_seconds)
+    print(f"[START] Watching {len(files)} file(s):")
+    for file_path in files:
+        print(f"  - {file_path.name}")
+    
+    while True:
+        if not data_dir.exists() or not data_dir.is_dir():
+            print(f"[ERROR] Data directory does not exist: {data_dir}")
+            return 1
+        
+        run_check(data_dir=data_dir, max_age_seconds=args.max_age_seconds)
+        time.sleep(5)
 
 
 if __name__ == "__main__":
