@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "bme688_dev.hh"
+#include "scd30.hh"
 #include "scd4x.hh"
 #include "as7341.hh"
 #include <Esp.h>
@@ -9,15 +10,6 @@
 TaskHandle_t pressureTaskHandle = nullptr;
 
 void setup(void) {
-  unsigned long start_time = millis();
-
-  // SCD41 variables
-  uint16_t co2_ppm;
-  float temperature, relative_humidity;
-
-  // BME688 Dev Kit Variables
-  float avg_gas_res, pressure, humidity = 0;
-  int num_reads = 0;
 
   Serial.begin(BAUD_RATE);
   while (!Serial) {
@@ -26,9 +18,15 @@ void setup(void) {
   SPI.begin(SCK, MISO, MOSI, CS);
   Wire.begin(SDA, SCL, I2C_FREQ);
 
+  DEBUG_PRINT("Initializing sensors");
   bme68x_init();
+  DEBUG_PRINT("Initialized BME688");
+  scd30_init();
+  DEBUG_PRINT("Initialized SCD30");
   scd4x_init();
+  DEBUG_PRINT("Initialized SCD41");
   as7341_init();
+  DEBUG_PRINT("Initialized AS7341");
   delay(50);
 
   xTaskCreatePinnedToCore(
@@ -45,43 +43,76 @@ void setup(void) {
 
 void loop() {
   unsigned long loop_start_time = millis();
-
   // BME688 Dev Kit Variables
   float avg_gas_res[8] = {0};
   float avg_pressure = 0;
 
-  // SCD41 variables
-  uint16_t co2_ppm = 0;
-  float temperature, relative_humidity = 0;
+  //SCD30 Variables
+  float scd30_co2_ppm = 0.0f;
+  float scd30_temp = 0.0f;
+  float scd30_rel_hum = 0.0f;
+
+  // SCD41 Variables
+  uint16_t scd4x_co2_ppm = 0;
+  float scd4x_temp = 0;
+  float scd4x_rel_hum = 0;
   
   // AS7341 Variables
   int avg_frequency_vals[10] = {0};
   
   DEBUG_PRINT("\nReading from BME688 gas sensor...");
   bool gas_read_success = bme68x_read_gas_sensors(avg_gas_res, avg_pressure);
+  if (!gas_read_success) {
+    Serial.print("Chamber " + String(CHAMBER_NAME) + " failed to read BME68x.");
+  }
   bme68x_sleep_gas_sensors();
-    
-  DEBUG_PRINT("\nReading from SCD4x sensor...");
-  bool co2_read_success = scd4x_single_shot_avg(co2_ppm, temperature, relative_humidity);
-  DEBUG_PRINT("CO2 PPM: " + String(co2_ppm) + 
-              "\nTemperature: " + String(temperature) +
-              "\nRelative Humidity: " + String(relative_humidity));
 
+  DEBUG_PRINT("\nReading from SCD30 sensor...");
+  bool scd30_read_success = scd30_averaged_read(scd30_co2_ppm, scd30_temp, scd30_rel_hum);
+  if (!scd30_read_success) {
+    Serial.print("Chamber " + String(CHAMBER_NAME) + " failed to read SCD30.");
+  }
+  DEBUG_PRINT("CO2 PPM: " + String(scd30_co2_ppm) + 
+              "\nTemperature: " + String(scd30_temp) +
+              "\nRelative Humidity: " + String(scd30_rel_hum));  
+
+  DEBUG_PRINT("\nReading from SCD4x sensor...");
+  bool scd4x_read_success = scd4x_single_shot_avg(scd4x_co2_ppm, scd4x_temp, scd4x_rel_hum);
+  if (!scd4x_read_success) {
+    Serial.print("Chamber " + String(CHAMBER_NAME) + " failed to read SCD4x.");
+  }
+  DEBUG_PRINT("CO2 PPM: " + String(scd4x_co2_ppm) + 
+              "\nTemperature: " + String(scd4x_temp) +
+              "\nRelative Humidity: " + String(scd4x_rel_hum));
 
   DEBUG_PRINT("\nReading from AS7341 light sensor...");
-  as7341_averaged_read(avg_frequency_vals, 3);
+  bool as7341_read_success = as7341_averaged_read(avg_frequency_vals, 3);
+  if (!as7341_read_success) {
+    Serial.print("Chamber " + String(CHAMBER_NAME) + " failed to read AS7341.");
+  }
 
-  // Send sensor readings over serial to be picked up by another devices (Raspbery Pi)
-  Serial.printf("##READING, %s, %u, %f, %f, %f, %f, %f, %f, %f, %f, %f,"
-    "%f, %f, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
-    CHAMBER_NAME,
-    co2_ppm, temperature, relative_humidity, // SCD41 Readings
-    avg_gas_res[0], avg_gas_res[1], avg_gas_res[2], avg_gas_res[3], // BME688 Readings
-    avg_gas_res[4], avg_gas_res[5], avg_gas_res[6], avg_gas_res[7], avg_pressure,
-    avg_frequency_vals[0], avg_frequency_vals[1], avg_frequency_vals[2], // AS7341 Readings
-    avg_frequency_vals[3], avg_frequency_vals[4], avg_frequency_vals[5],
-    avg_frequency_vals[6], avg_frequency_vals[7], avg_frequency_vals[8], avg_frequency_vals[9]
-  );
+  if (gas_read_success && scd30_read_success && scd4x_read_success && as7341_read_success) {
+    // Send sensor readings over serial to be picked up by another devices (Raspbery Pi)
+    // Note, this message must be under the UART fifo buffer size (256 bytes for esp32 wroom and many other microcontrollers)
+    Serial.printf("##READING,"
+      "%s,"                       // Chamber Name
+      "%.1f,%.1f,%.1f,%.1f,"      // BME688 readings row 1
+      "%.1f,%.1f,%.1f,%.1f,%.1f," // BME688 readings row 2
+      "%.1f,%.1f,%.1f,"           // SCD30 readings
+      "%u,%.1f,%.1f,"             // SCD41 readings
+      "%d,%d,%d,"                 // AS7341 readings row 1
+      "%d,%d,%d,"                 // AS7341 readings row 2
+      "%d,%d,%d,%d",              // AS7341 readings row 3
+      CHAMBER_NAME,
+      avg_gas_res[0], avg_gas_res[1], avg_gas_res[2], avg_gas_res[3], // BME688 Readings
+      avg_gas_res[4], avg_gas_res[5], avg_gas_res[6], avg_gas_res[7], avg_pressure, // BME688 Readings
+      scd30_co2_ppm, scd30_temp, scd30_rel_hum, // SCD30 Readings
+      scd4x_co2_ppm, scd4x_temp, scd4x_rel_hum, // SCD41 Readings
+      avg_frequency_vals[0], avg_frequency_vals[1], avg_frequency_vals[2], // AS7341 Readings
+      avg_frequency_vals[3], avg_frequency_vals[4], avg_frequency_vals[5], // AS7341 Readings
+      avg_frequency_vals[6], avg_frequency_vals[7], avg_frequency_vals[8], avg_frequency_vals[9] // AS7341 Readings
+    );
+  }
     
   unsigned long loop_time = millis() - loop_start_time;
   DEBUG_PRINT("\nLoop Time: " + String(loop_time));

@@ -14,13 +14,13 @@
 SensirionI2cScd4x scd4x;
 
 static char errorMessage[64];
-static int16_t error;
+// static int16_t error;
 
 static int16_t call_and_check_error(int16_t error_status, String caller_identifier) {
     if (error_status != NO_ERROR) {
         
         errorToString(error_status, errorMessage, sizeof errorMessage);
-        Serial.printf("Error trying to execute %s: %s", caller_identifier, errorMessage);
+        Serial.print("Error trying to execute " + String(caller_identifier) + ": " + String(errorMessage));
         Serial.print("##ALERT, " + String(CHAMBER_NAME) + ", SCD4x Error: " + String(errorMessage));
     }
     return error_status;
@@ -38,7 +38,7 @@ void scd4x_init() {
     */
     scd4x.begin(Wire, SCD41_I2C_ADDR_62);
 
-    uint64_t serialNumber = 0;
+    // uint64_t serialNumber = 0;
     delay(30);
     // Ensure sensor is in clean state
     call_and_check_error(scd4x.wakeUp(), "wakeUp()");

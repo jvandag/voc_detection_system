@@ -15,11 +15,14 @@ class SerialMonitor:
     def __init__(self,
                  baud_rate=None,
                  print_msgs=False,
-                 save_data=True):
+                 save_data=True,
+                 log_uninitialized_chambers=False # will log data from chambers that are not initialized if true
+                 ):
 
         self.baud_rate = baud_rate or settings.get("serial_monitor_baud_rate", 115200)
         self.print_msgs = print_msgs
         self.save_data = save_data
+        self.log_uninitialized = log_uninitialized_chambers
 
         # port_name -> Thread
         self.active_ports = {}
@@ -80,8 +83,8 @@ class SerialMonitor:
             print(f"{data}")
         # save to appropriate CSV based off of message
         if self.save_data:
-            # Split the string into a list (assuming comma-and-space-separated values)
-            col = data.split(', ')
+            # Split the string into a list (assuming comma separated values)
+            col = data.split(',')
             if not col:
                 return
 
@@ -91,16 +94,17 @@ class SerialMonitor:
                     if self.last_readings.get(col[1], None) is not None:
                         self.last_readings[col[1]]["pressure"] = col[2]
                     else:
-                        #if (settings.get("DEBUG", False)): print(f"Pressure reading recived for chamber \"{col[1]}\" but chamber is uninitialized.")
+                        # if (settings.get("DEBUG", False)): print(f"Pressure reading recived for chamber \"{col[1]}\" but chamber is uninitialized.")
                         pass
                 case "##READING":
                     # check chamber has been added by control system
-                    if self.last_readings.get(col[1], None) is not None:
+                    if self.last_readings.get(col[1], None) is not None or self.log_uninitialized:
                         if self.ignore_next_reading.get(col[1], False):
                             self.ignore_next_reading[col[1]] = False
                             if (settings.get("DEBUG", False)): print(f"Ignoring sensor reading for chamber \"{col[1]}\"")
                             return
-                        self.last_readings[col[1]]["reading"] = col[2]
+                        if self.last_readings.get(col[1], None) is not None:
+                            self.last_readings[col[1]]["reading"] = col[2]
                         # save reading to csv file specific to the chamber
                         file_path = f"data/chamber_{col[1]}_readings.csv"
                         
@@ -199,7 +203,7 @@ class SerialMonitor:
 
 
 def main() -> int:
-    monitor = SerialMonitor()
+    monitor = SerialMonitor(baud_rate=None, print_msgs=False, save_data=True, log_uninitialized_chambers=True)
     try:
         print("Starting Serial Monitor. Press Ctrl+C to stop.")
         monitor.start_monitoring()

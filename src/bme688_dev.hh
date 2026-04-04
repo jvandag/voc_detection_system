@@ -169,6 +169,7 @@ bool bme68x_read_gas_sensors(float *avg_gas_res, float &avg_pressure) {
             delayMicroseconds(dur*16*MEASURE_DUR/500);
             for (uint8_t sensor = NUM_PRES_SENSORS; sensor < N_KIT_SENS; sensor++) {
                 bool sample_collected = false;
+                int fail_count = 0;
                 do {
                     if (bme[sensor].fetchData()) {
                         bme[sensor].getData(data[sensor - NUM_PRES_SENSORS]);
@@ -188,10 +189,14 @@ bool bme68x_read_gas_sensors(float *avg_gas_res, float &avg_pressure) {
                         num_pressure_reads += 1;
                         sample_collected = true;
                     }
+                    else if (fail_count >= 10) {
+                        return false;
+                    }
                     else {
                         DEBUG_PRINT("Failed to fetch data for sensor " + String(sensor) + 
                                     " during profile " + String(profile));
-                        delay(1);
+                        delay(0.25);
+                        fail_count++;
                     }
                 } while (!sample_collected);
             }
@@ -347,7 +352,7 @@ void pressure_logger_task(void *pvParameters) {
         // Serial.print(String(data[i].gas_resistance) + ", ");
         // Serial.println(data[i].status, HEX);
         
-        Serial.println("##PRESSURE, " + String(CHAMBER_NAME) + ", " + String(data[i].pressure));
+        // Serial.println("##PRESSURE, " + String(CHAMBER_NAME) + ", " + String(data[i].pressure));
 
         bme[i].setOpMode(BME68X_FORCED_MODE);
         sens_delay = bme[i].getMeasDur()/NUM_PRES_SENSORS;
