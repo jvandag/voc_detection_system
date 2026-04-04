@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Iterable, Sequence, Tuple
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 from matplotlib.ticker import FuncFormatter, MaxNLocator
@@ -26,10 +27,10 @@ EPOCH_WINDOW_MIN = 1773786659
 EPOCH_WINDOW_MAX = 1774164141
 
 SPECTRAL_OUTPUT_BASES = ["spectral_raw_comparison"]
-STACKED_FIGURE_WIDTH = 12
+STACKED_FIGURE_WIDTH = 13.2
 STACKED_FIGURE_HEIGHT_PER_CHAMBER = 3.8
-METRIC_GROUP_TITLE_FONT_SIZE = 20
-STACKED_SUBPLOT_HSPACE_MULTIPLIER = 2.0
+METRIC_GROUP_TITLE_FONT_SIZE = 26
+STACKED_SUBPLOT_HSPACE_MULTIPLIER = 3.0
 MIN_PEAK_POINTS = 3
 FIT_IGNORE_FIRST_N_PEAKS = 0
 OFFSET_SCAN_SPAN_FACTOR = 0.8
@@ -37,6 +38,28 @@ OFFSET_SCAN_POINTS = 120
 APPLY_BUTTERWORTH_TO_TEMP_HUMIDITY = True
 BUTTERWORTH_ORDER = 4
 BUTTERWORTH_NORMALIZED_CUTOFF = 0.08
+
+BASE_FONT_SIZE = 16
+AXIS_TITLE_FONT_SIZE = 18
+AXIS_LABEL_FONT_SIZE = 17
+TICK_LABEL_FONT_SIZE = 14
+LEGEND_FONT_SIZE = 14
+DATA_LINE_WIDTH = 3.3
+LEGEND_TOP_Y = 0.93
+TITLE_TOP_Y = 0.97
+LAYOUT_TOP = 2 * LEGEND_TOP_Y - TITLE_TOP_Y + 0.0
+
+plt.rcParams.update(
+    {
+        "font.size": BASE_FONT_SIZE,
+        "axes.titlesize": AXIS_TITLE_FONT_SIZE,
+        "axes.labelsize": AXIS_LABEL_FONT_SIZE,
+        "xtick.labelsize": TICK_LABEL_FONT_SIZE,
+        "ytick.labelsize": TICK_LABEL_FONT_SIZE,
+        "legend.fontsize": LEGEND_FONT_SIZE,
+        "figure.titlesize": METRIC_GROUP_TITLE_FONT_SIZE,
+    }
+)
 
 BME688_COLUMNS = [f"bme688_gas_res_{i}" for i in range(8)] + ["bme688_pressure"]
 SCD30_COLUMNS = ["scd30_co2_ppm", "scd30_temp_c", "scd30_rel_humidity_pct"]
@@ -227,7 +250,7 @@ def _plot_group_raw(
             ax.plot(
                 chamber_df[ELAPSED_HOURS_COLUMN],
                 chamber_df[column],
-                linewidth=1.4,
+                linewidth=DATA_LINE_WIDTH,
                 label=_display_chamber_label(chamber_name),
             )
         ax.set_title(column)
@@ -235,16 +258,27 @@ def _plot_group_raw(
         ax.xaxis.set_major_locator(MaxNLocator(nbins=8))
         ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _pos: f"{x:.1f}"))
         ax.tick_params(axis="x", labelrotation=35)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
         ax.grid(alpha=0.3)
 
     for idx in range(len(plot_columns), len(axes_flat)):
         fig.delaxes(axes_flat[idx])
 
     handles, labels = axes_flat[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=max(1, len(labels)), frameon=False)
-    fig.suptitle(title, fontsize=14)
+    fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=max(1, len(labels)),
+        frameon=True,
+        edgecolor="#d0d0d0",
+        facecolor="none",
+        bbox_to_anchor=(0.5, LEGEND_TOP_Y),
+    )
+    fig.suptitle(title, fontsize=14, y=TITLE_TOP_Y)
     fig.supxlabel("Hours from first sample")
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.tight_layout(rect=(0, 0, 1, LAYOUT_TOP))
     _save_figure(fig, output_bases)
     plt.close(fig)
 
@@ -379,6 +413,26 @@ def _plot_stacked_metric_chambers(
     if not chamber_items:
         raise ValueError("No chamber data available to plot.")
 
+    global_min = math.inf
+    global_max = -math.inf
+    local_bounds: dict[str, tuple[float, float]] = {}
+    for chamber_name, chamber_df in chamber_items:
+        values = pd.to_numeric(chamber_df[metric_column], errors="coerce").to_numpy(dtype=float)
+        if values.size == 0:
+            continue
+        finite = np.isfinite(values)
+        if not np.any(finite):
+            continue
+        local_min = float(np.nanmin(values))
+        local_max = float(np.nanmax(values))
+        global_min = min(global_min, local_min)
+        global_max = max(global_max, local_max)
+        local_bounds[chamber_name] = (local_min, local_max)
+    if not np.isfinite(global_min) or not np.isfinite(global_max):
+        global_min, global_max = math.inf, -math.inf
+
+    fit_labels: list[str] = []
+    raw_label: str | None = None
     fig, axes = plt.subplots(
         nrows=len(chamber_items),
         ncols=1,
@@ -396,9 +450,11 @@ def _plot_stacked_metric_chambers(
 
         x = x_series[valid].to_numpy(dtype=float)
         y = y_series[valid].to_numpy(dtype=float)
+        chamber_title = _display_chamber_label(chamber_name)
         if len(x) == 0:
-            ax.set_title(f"{_display_chamber_label(chamber_name)} (no valid data)")
+            ax.set_title(f"{chamber_title} (no valid data)")
             ax.grid(alpha=0.3)
+            fit_labels.append(f"{chamber_title} Fit Line: no data")
             continue
 
         raw_label = f"Raw {metric_label}"
@@ -406,12 +462,11 @@ def _plot_stacked_metric_chambers(
             raw_label = f"CO2 ppm ({sensor_name})"
         elif APPLY_BUTTERWORTH_TO_TEMP_HUMIDITY and metric_slug in {"temp", "humidity"}:
             raw_label = f"Filtered {metric_label} ({sensor_name})"
-
         raw_line = ax.plot(
             x,
             y,
             color="#1f77b4",
-            linewidth=1.2,
+            linewidth=DATA_LINE_WIDTH,
             label=raw_label,
         )
 
@@ -437,23 +492,75 @@ def _plot_stacked_metric_chambers(
                 label=trend_label,
             )
 
-        legend_handles = [raw_line[0], peak_points]
-        if trend_line:
-            legend_handles.append(trend_line[0])
-        ax.legend(handles=legend_handles, loc="upper right", frameon=False)
+        if trend_label is not None:
+            fit_labels.append(f"{chamber_title} Fit Line: {trend_label}")
+        else:
+            fit_labels.append(f"{chamber_title} Fit Line: not enough peaks")
 
-        ax.set_title(_display_chamber_label(chamber_name))
+        ax.set_title(chamber_title)
         ax.set_ylabel(metric_label)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
         ax.grid(alpha=0.3)
 
-    for ax in axes_flat:
+    for idx, (chamber_name, _chamber_df) in enumerate(chamber_items):
+        ax = axes_flat[idx]
         ax.set_xlabel("Hours from first sample")
         ax.tick_params(axis="x", labelbottom=True)
+        if np.isfinite(global_min) and np.isfinite(global_max):
+            bounds = local_bounds.get(chamber_name)
+            if bounds is not None:
+                local_min, local_max = bounds
+                ymin = max(global_min, local_min / 3.0)
+                ymax = min(global_max, local_max * 3.0)
+                if np.isfinite(ymin) and np.isfinite(ymax) and ymin < ymax:
+                    ax.set_ylim(ymin, ymax)
+                else:
+                    ax.set_ylim(global_min, global_max)
+            else:
+                ax.set_ylim(global_min, global_max)
     axes_flat[-1].xaxis.set_major_locator(MaxNLocator(nbins=10))
     axes_flat[-1].xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: f"{v:.1f}"))
     group_title = METRIC_GROUP_TITLES.get(metric_slug, f"{metric_label} Over Time")
-    fig.suptitle(group_title, fontsize=METRIC_GROUP_TITLE_FONT_SIZE)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.suptitle(group_title, fontsize=METRIC_GROUP_TITLE_FONT_SIZE, y=TITLE_TOP_Y)
+    legend_handles = [
+        Line2D([0], [0], color="#1f77b4", linewidth=DATA_LINE_WIDTH, label=raw_label or "Raw"),
+        Line2D(
+            [0],
+            [0],
+            linestyle="",
+            marker="o",
+            markersize=6,
+            markerfacecolor="#2ca02c",
+            markeredgecolor="none",
+            label="Peaks used for fit",
+        ),
+    ]
+    legend_labels = [h.get_label() for h in legend_handles]
+    if fit_labels:
+        for fit_label in fit_labels:
+            legend_handles.append(
+                Line2D(
+                    [0],
+                    [0],
+                    color="#d62728",
+                    linewidth=2.0,
+                    linestyle="--",
+                    label=fit_label,
+                )
+            )
+            legend_labels.append(fit_label)
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        loc="upper center",
+        ncol=2,
+        frameon=True,
+        edgecolor="#d0d0d0",
+        facecolor="none",
+        bbox_to_anchor=(0.5, LEGEND_TOP_Y),
+    )
+    fig.tight_layout(rect=(0, 0, 1, LAYOUT_TOP))
     default_hspace = float(plt.rcParams.get("figure.subplot.hspace", 0.2))
     fig.subplots_adjust(hspace=default_hspace * STACKED_SUBPLOT_HSPACE_MULTIPLIER)
     output_bases = [output_dir / f"{alias}_{metric_slug}_raw_stacked_chambers" for alias in sensor_aliases]
@@ -478,6 +585,37 @@ def _plot_stacked_overlap_groups(
     if not chamber_items:
         raise ValueError("No chamber data available to plot.")
 
+    co2_min = math.inf
+    co2_max = -math.inf
+    second_min = math.inf
+    second_max = -math.inf
+    co2_bounds: dict[str, tuple[float, float]] = {}
+    second_bounds: dict[str, tuple[float, float]] = {}
+    for chamber_name, chamber_df in chamber_items:
+        co2_vals = pd.to_numeric(chamber_df[co2_column], errors="coerce").to_numpy(dtype=float)
+        sec_vals = pd.to_numeric(chamber_df[secondary_column], errors="coerce").to_numpy(dtype=float)
+        if co2_vals.size:
+            finite = np.isfinite(co2_vals)
+            if np.any(finite):
+                local_min = float(np.nanmin(co2_vals))
+                local_max = float(np.nanmax(co2_vals))
+                co2_min = min(co2_min, local_min)
+                co2_max = max(co2_max, local_max)
+                co2_bounds[chamber_name] = (local_min, local_max)
+        if sec_vals.size:
+            finite = np.isfinite(sec_vals)
+            if np.any(finite):
+                local_min = float(np.nanmin(sec_vals))
+                local_max = float(np.nanmax(sec_vals))
+                second_min = min(second_min, local_min)
+                second_max = max(second_max, local_max)
+                second_bounds[chamber_name] = (local_min, local_max)
+    if not np.isfinite(co2_min) or not np.isfinite(co2_max):
+        co2_min, co2_max = math.inf, -math.inf
+    if not np.isfinite(second_min) or not np.isfinite(second_max):
+        second_min, second_max = math.inf, -math.inf
+
+    fit_labels: list[str] = []
     fig, axes = plt.subplots(
         nrows=len(chamber_items),
         ncols=1,
@@ -490,6 +628,7 @@ def _plot_stacked_overlap_groups(
     for idx, (chamber_name, chamber_df) in enumerate(chamber_items):
         ax_left = axes_flat[idx]
         ax_right = ax_left.twinx()
+        chamber_title = _display_chamber_label(chamber_name)
 
         x_series = pd.to_numeric(chamber_df[ELAPSED_HOURS_COLUMN], errors="coerce")
         co2_series = pd.to_numeric(chamber_df[co2_column], errors="coerce")
@@ -501,15 +640,17 @@ def _plot_stacked_overlap_groups(
         y_second = second_series[valid].to_numpy(dtype=float)
 
         if len(x) == 0:
-            ax_left.set_title(f"{_display_chamber_label(chamber_name)} (no valid data)")
+            ax_left.set_title(f"{chamber_title} (no valid data)")
             ax_left.grid(alpha=0.3)
+            if include_co2_fit:
+                fit_labels.append(f"{chamber_title} Fit Line: no data")
             continue
 
         line_co2 = ax_left.plot(
             x,
             y_co2,
             color="#1f77b4",
-            linewidth=1.4,
+            linewidth=DATA_LINE_WIDTH,
             label=f"CO2 ppm ({sensor_name})",
         )
         second_prefix = "Filtered " if APPLY_BUTTERWORTH_TO_TEMP_HUMIDITY else ""
@@ -517,7 +658,7 @@ def _plot_stacked_overlap_groups(
             x,
             y_second,
             color="#ff7f0e",
-            linewidth=1.3,
+            linewidth=DATA_LINE_WIDTH,
             label=f"{second_prefix}{secondary_label} ({sensor_name})",
         )
 
@@ -535,29 +676,88 @@ def _plot_stacked_overlap_groups(
                     linestyle="--",
                     label=trend_label,
                 )
+                fit_labels.append(f"{chamber_title} Fit Line: {trend_label}")
+            else:
+                fit_labels.append(f"{chamber_title} Fit Line: not enough peaks")
 
-        handles = [line_co2[0], line_second[0]]
-        if fit_line:
-            handles.append(fit_line[0])
-        labels = [h.get_label() for h in handles]
-        ax_left.legend(handles, labels, loc="upper right", frameon=False)
-
-        ax_left.set_title(_display_chamber_label(chamber_name))
+        ax_left.set_title(chamber_title)
         ax_left.set_ylabel("CO2 (ppm)")
+        for spine in ax_left.spines.values():
+            spine.set_visible(False)
         ax_left.grid(alpha=0.3)
 
         ax_right.set_ylabel(secondary_label)
         ax_right.yaxis.set_label_position("right")
         ax_right.yaxis.tick_right()
         ax_right.tick_params(axis="y", labelright=True, labelleft=False)
+        for spine in ax_right.spines.values():
+            spine.set_visible(False)
+        if np.isfinite(co2_min) and np.isfinite(co2_max):
+            bounds = co2_bounds.get(chamber_name)
+            if bounds is not None:
+                local_min, local_max = bounds
+                ymin = max(co2_min, local_min / 3.0)
+                ymax = min(co2_max, local_max * 3.0)
+                if np.isfinite(ymin) and np.isfinite(ymax) and ymin < ymax:
+                    ax_left.set_ylim(ymin, ymax)
+                else:
+                    ax_left.set_ylim(co2_min, co2_max)
+            else:
+                ax_left.set_ylim(co2_min, co2_max)
+        if np.isfinite(second_min) and np.isfinite(second_max):
+            bounds = second_bounds.get(chamber_name)
+            if bounds is not None:
+                local_min, local_max = bounds
+                ymin = max(second_min, local_min / 3.0)
+                ymax = min(second_max, local_max * 3.0)
+                if np.isfinite(ymin) and np.isfinite(ymax) and ymin < ymax:
+                    ax_right.set_ylim(ymin, ymax)
+                else:
+                    ax_right.set_ylim(second_min, second_max)
+            else:
+                ax_right.set_ylim(second_min, second_max)
 
     for ax in axes_flat:
         ax.set_xlabel("Hours from first sample")
         ax.tick_params(axis="x", labelbottom=True)
     axes_flat[-1].xaxis.set_major_locator(MaxNLocator(nbins=10))
     axes_flat[-1].xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: f"{v:.1f}"))
-    fig.suptitle(group_title, fontsize=METRIC_GROUP_TITLE_FONT_SIZE)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.suptitle(group_title, fontsize=METRIC_GROUP_TITLE_FONT_SIZE, y=TITLE_TOP_Y)
+    legend_handles = [
+        Line2D([0], [0], color="#1f77b4", linewidth=DATA_LINE_WIDTH, label=f"CO2 ppm ({sensor_name})"),
+        Line2D(
+            [0],
+            [0],
+            color="#ff7f0e",
+            linewidth=DATA_LINE_WIDTH,
+            label=f"{'Filtered ' if APPLY_BUTTERWORTH_TO_TEMP_HUMIDITY else ''}{secondary_label} ({sensor_name})",
+        ),
+    ]
+    legend_labels = [h.get_label() for h in legend_handles]
+    if include_co2_fit:
+        for fit_label in fit_labels:
+            legend_handles.append(
+                Line2D(
+                    [0],
+                    [0],
+                    color="#d62728",
+                    linewidth=2.0,
+                    linestyle="--",
+                    label=fit_label,
+                )
+            )
+            legend_labels.append(fit_label)
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        loc="upper center",
+        ncol=2,
+        frameon=True,
+        edgecolor="#d0d0d0",
+        facecolor="none",
+        bbox_to_anchor=(0.5, LEGEND_TOP_Y),
+    )
+    fig.tight_layout(rect=(0, 0, 1, LAYOUT_TOP))
     default_hspace = float(plt.rcParams.get("figure.subplot.hspace", 0.2))
     fig.subplots_adjust(hspace=default_hspace * STACKED_SUBPLOT_HSPACE_MULTIPLIER)
     suffix = f"_{output_suffix}" if output_suffix else ""
@@ -620,7 +820,7 @@ def main() -> None:
         secondary_column=SCD30_COLUMNS[2],
         secondary_slug="humidity",
         secondary_label="Relative Humidity (%)",
-        group_title="CO2 and Relative Humidity Over Time (SCD30)",
+        group_title="CO2 and Relative Humidity Over Time",
         output_dir=OUTPUT_DIR,
     )
     _plot_stacked_overlap_groups(
@@ -631,7 +831,7 @@ def main() -> None:
         secondary_column=SCD30_COLUMNS[2],
         secondary_slug="humidity",
         secondary_label="Relative Humidity (%)",
-        group_title="CO2 and Relative Humidity Over Time (SCD30, with CO2 Fit)",
+        group_title="CO2 and Relative Humidity Over Time",
         output_dir=OUTPUT_DIR,
         include_co2_fit=True,
         output_suffix="with_co2_fit",
@@ -644,7 +844,7 @@ def main() -> None:
         secondary_column=SCD30_COLUMNS[1],
         secondary_slug="temp",
         secondary_label="Temperature (C)",
-        group_title="CO2 and Temperature Over Time (SCD30)",
+        group_title="CO2 and Temperature Over Time",
         output_dir=OUTPUT_DIR,
     )
     _plot_stacked_overlap_groups(
@@ -655,7 +855,7 @@ def main() -> None:
         secondary_column=SCD30_COLUMNS[1],
         secondary_slug="temp",
         secondary_label="Temperature (C)",
-        group_title="CO2 and Temperature Over Time (SCD30, with CO2 Fit)",
+        group_title="CO2 and Temperature Over Time",
         output_dir=OUTPUT_DIR,
         include_co2_fit=True,
         output_suffix="with_co2_fit",
@@ -669,7 +869,7 @@ def main() -> None:
         secondary_column=SCD41X_COLUMNS[2],
         secondary_slug="humidity",
         secondary_label="Relative Humidity (%)",
-        group_title="CO2 and Relative Humidity Over Time (SCD40)",
+        group_title="CO2 and Relative Humidity Over Time",
         output_dir=OUTPUT_DIR,
     )
     _plot_stacked_overlap_groups(
@@ -680,7 +880,7 @@ def main() -> None:
         secondary_column=SCD41X_COLUMNS[2],
         secondary_slug="humidity",
         secondary_label="Relative Humidity (%)",
-        group_title="CO2 and Relative Humidity Over Time (SCD40, with CO2 Fit)",
+        group_title="CO2 and Relative Humidity Over Time",
         output_dir=OUTPUT_DIR,
         include_co2_fit=True,
         output_suffix="with_co2_fit",
@@ -693,7 +893,7 @@ def main() -> None:
         secondary_column=SCD41X_COLUMNS[1],
         secondary_slug="temp",
         secondary_label="Temperature (C)",
-        group_title="CO2 and Temperature Over Time (SCD40)",
+        group_title="CO2 and Temperature Over Time",
         output_dir=OUTPUT_DIR,
     )
     _plot_stacked_overlap_groups(
@@ -704,7 +904,7 @@ def main() -> None:
         secondary_column=SCD41X_COLUMNS[1],
         secondary_slug="temp",
         secondary_label="Temperature (C)",
-        group_title="CO2 and Temperature Over Time (SCD40, with CO2 Fit)",
+        group_title="CO2 and Temperature Over Time",
         output_dir=OUTPUT_DIR,
         include_co2_fit=True,
         output_suffix="with_co2_fit",
