@@ -41,6 +41,7 @@ bool scd30_init() {
 
 bool scd30_averaged_read(float &co2_ppm, float &temp_cel, float &rel_hum, int num_readings = 3) {
     int readings_collected = 0;
+    int failed_reads = 0;
     do {
         if (scd30.dataReady()) {
             DEBUG_PRINT("Data available!");
@@ -73,11 +74,17 @@ bool scd30_averaged_read(float &co2_ppm, float &temp_cel, float &rel_hum, int nu
 
                 Serial.println("");
             #endif
-        } else {
+        } 
+        else if (failed_reads >= 15) {
+            DEBUG_PRINT("SCD30 too many failed reads, timing out");
+            return false;
+        }
+        else {
             DEBUG_PRINT("SCD30 no new data");
+            failed_reads++;
         }
 
-        delay(1000); // delay a second waiting for new data
+        delay(2000); // delay two seconds waiting for new data
         } while (readings_collected <= num_readings);
         
     return true;

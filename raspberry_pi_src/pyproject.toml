@@ -19,6 +19,7 @@ led_breather = "pi_src.control_sys.LEDBreather:main"
 system_test = "pi_src.system_test:main"
 system_test2 = "pi_src.system_test2:main"
 serial_monitor = "pi_src.control_sys.SerialMonitor:main"
+chamber_data_wd = "pi_src.control_sys.chamber_data_watchdog:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
