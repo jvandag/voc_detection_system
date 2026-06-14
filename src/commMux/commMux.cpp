@@ -37,8 +37,8 @@
  */
 
 #include "commMux.h"
+#include "../feather_v2_config.hh"
 
-#define CLOCK_FREQUENCY 400000
 #define COMM_SPEED 8000000
 
 const uint8_t I2C_EXPANDER_ADDR = 0x20;
@@ -65,7 +65,7 @@ commMux commMuxSetConfig(TwoWire &wireobj, SPIClass &spiobj, uint8_t idx, commMu
 void commMuxBegin(TwoWire &wireobj, SPIClass &spiobj)
 {
 	wireobj.begin();
-	wireobj.setClock(CLOCK_FREQUENCY);
+	wireobj.setClock(I2C_FREQ);
 	wireobj.beginTransmission(I2C_EXPANDER_ADDR);
 	wireobj.write(I2C_EXPANDER_CONFIG_REG_ADDR);
 	wireobj.write(I2C_EXPANDER_CONFIG_REG_MASK);

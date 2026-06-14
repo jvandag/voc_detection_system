@@ -1,7 +1,8 @@
 #include "scd4x_calibration.h"
 
 bool recalibrate(uint16_t reference_ppm) {
-    Wire.begin();
+    Wire.begin(SDA, SCL, I2C_FREQ);
+    Wire.setTimeOut(I2C_TIMEOUT_MS);
     scd4x.begin(Wire, SCD41_I2C_ADDR_62);
 
     // FRC must be done while *not* measuring

@@ -17,6 +17,7 @@ void setup(void) {
   }
   SPI.begin(SCK, MISO, MOSI, CS);
   Wire.begin(SDA, SCL, I2C_FREQ);
+  Wire.setTimeOut(I2C_TIMEOUT_MS);
 
   DEBUG_PRINT("Initializing sensors");
   bme68x_init();

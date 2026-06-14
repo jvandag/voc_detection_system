@@ -1,6 +1,7 @@
 #pragma once
 
-#define I2C_FREQ  400000
+#define I2C_FREQ  50000
+#define I2C_TIMEOUT_MS 250
 #define BAUD_RATE 115200
 #define SD_PIN_CS 33 // Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3, pin 33 on adafruit esp32 V2
 #define SAMPLE_INTERVAL 5*60*1000 // interval between collecting sensor data in ms

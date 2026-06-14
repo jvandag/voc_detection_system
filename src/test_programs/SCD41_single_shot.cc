@@ -38,6 +38,7 @@
 #include <Arduino.h>
 #include <SensirionI2cScd4x.h>
 #include <Wire.h>
+#include "../feather_v2_config.hh"
 
 // macro definitions
 // make sure that we use the proper definition of NO_ERROR
@@ -63,7 +64,8 @@ void setup() {
     while (!Serial) {
         delay(100);
     }
-    Wire.begin();
+    Wire.begin(SDA, SCL, I2C_FREQ);
+    Wire.setTimeOut(I2C_TIMEOUT_MS);
     sensor.begin(Wire, SCD41_I2C_ADDR_62);
 
     uint64_t serialNumber = 0;
