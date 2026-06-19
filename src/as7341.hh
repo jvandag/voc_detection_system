@@ -12,7 +12,7 @@ Adafruit_AS7341 as7341;
 
 void as7341_init() {
   if (!as7341.begin()){
-    Serial.print("##ALERT, " + String(CHAMBER_NAME) + ", Could not find AS7341 during init.");
+    Serial.println("##ALERT, " + String(CHAMBER_NAME) + ", Could not find AS7341 during init.");
     
   }
   as7341.setATIME(100);
@@ -26,7 +26,7 @@ bool as7341_read_sensor(int (&read_arr)[10]) {
     as7341.enableLED(true);
     delay(10);
     if (!as7341.readAllChannels()){
-        Serial.print("##ALERT, " + String(CHAMBER_NAME) + ", Failed to call readAllChannels as7341.");
+        Serial.println("##ALERT, " + String(CHAMBER_NAME) + ", Failed to call readAllChannels as7341.");
         return false;
     }
     as7341.enableLED(false);
@@ -83,7 +83,7 @@ bool as7341_averaged_read(int (&read_arr)[10], int num_reads = 3) {
             delay(100);
         }
         else {
-            Serial.print("##ALERT, " + String(CHAMBER_NAME) + ", Failed to call averaged_read as7341.");
+            Serial.println("##ALERT, " + String(CHAMBER_NAME) + ", Failed to call averaged_read as7341.");
             return false;
         }
     }

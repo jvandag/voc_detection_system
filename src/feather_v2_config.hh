@@ -5,7 +5,7 @@
 #define BAUD_RATE 115200
 #define SD_PIN_CS 33 // Chip Select pin for your SD interface, pin 10 on adafruit esp32-s3, pin 33 on adafruit esp32 V2
 #define SAMPLE_INTERVAL 5*60*1000 // interval between collecting sensor data in ms
-#define CHAMBER_NAME "1"
+#define CHAMBER_NAME "3AC"
 
 // Explicit pin defines for the Adafruit esp32 V2 board
 // Pinouts for this board must be explicitly defined to work with platformio

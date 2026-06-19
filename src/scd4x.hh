@@ -20,8 +20,8 @@ static int16_t call_and_check_error(int16_t error_status, String caller_identifi
     if (error_status != NO_ERROR) {
         
         errorToString(error_status, errorMessage, sizeof errorMessage);
-        Serial.print("Error trying to execute " + String(caller_identifier) + ": " + String(errorMessage));
-        Serial.print("##ALERT, " + String(CHAMBER_NAME) + ", SCD4x Error: " + String(errorMessage));
+        Serial.println("Error trying to execute " + String(caller_identifier) + ": " + String(errorMessage));
+        Serial.println("##ALERT, " + String(CHAMBER_NAME) + ", SCD4x Error: " + String(errorMessage));
     }
     return error_status;
 }

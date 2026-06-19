@@ -2,6 +2,7 @@ import serial
 import threading
 import time
 import csv
+from typing import Optional
 from serial.tools import list_ports
 from ..config.config_manager import settings
 from .DiscordAlerts import send_discord_alert_webhook
@@ -27,24 +28,29 @@ class SerialMonitor:
         # port_name -> Thread
         self.active_ports = {}
         self.lock = threading.Lock()
+        self.print_lock = threading.Lock()
         self.running = False
         self.last_readings = {}
         self.monitor_thread = None
         self.ignore_next_reading = {}
+
+    def _print(self, message: str):
+        with self.print_lock:
+            print(message)
 
     def read_from_port(self, port_name):
         ser = None
         try:
             ser = serial.Serial(port_name, self.baud_rate, timeout=1.0)
         except serial.SerialException as e:
-            print(f"Could not open {port_name}: {e}")
+            self._print(f"Could not open {port_name}: {e}")
             # Make sure this port is not considered active
             with self.lock:
                 self.active_ports.pop(port_name, None)
             return
 
         try:
-            print(f"Started listening on {port_name}")
+            self._print(f"Started listening on {port_name}")
             # Clear any stale data in the buffer
             try:
                 ser.reset_input_buffer()
@@ -64,10 +70,10 @@ class SerialMonitor:
                 except Exception:
                     continue
                 if line:
-                    self.parse_serial_msg(line)
+                    self.parse_serial_msg(line, port_name)
                     
         except Exception as e:
-            print(f"Error on {port_name}: {e}")
+            self._print(f"Error on {port_name}: {e}")
         finally:
             try:
                 if ser is not None and ser.is_open:
@@ -76,11 +82,12 @@ class SerialMonitor:
                 pass
             with self.lock:
                 self.active_ports.pop(port_name, None)
-            print(f"Stopped listening on {port_name}")
+            self._print(f"Stopped listening on {port_name}")
 
-    def parse_serial_msg(self, data: str):
-        if self.print_msgs or True:
-            print(f"{data}")
+    def parse_serial_msg(self, data: str, port_name: Optional[str] = None):
+        if self.print_msgs:
+            source = f"[{port_name}] " if port_name else ""
+            self._print(f"{source}{data}")
         # save to appropriate CSV based off of message
         if self.save_data:
             # Split the string into a list (assuming comma separated values)
@@ -90,6 +97,8 @@ class SerialMonitor:
 
             match col[0]:
                 case "##PRESSURE":
+                    if len(col) < 3:
+                        return
                     # check chamber has been added by control system
                     if self.last_readings.get(col[1], None) is not None:
                         self.last_readings[col[1]]["pressure"] = col[2]
@@ -97,11 +106,14 @@ class SerialMonitor:
                         # if (settings.get("DEBUG", False)): print(f"Pressure reading recived for chamber \"{col[1]}\" but chamber is uninitialized.")
                         pass
                 case "##READING":
+                    if len(col) != 27:
+                        self._print(f"Dropped malformed reading from {port_name or 'serial'}: {data}")
+                        return
                     # check chamber has been added by control system
                     if self.last_readings.get(col[1], None) is not None or self.log_uninitialized:
                         if self.ignore_next_reading.get(col[1], False):
                             self.ignore_next_reading[col[1]] = False
-                            if (settings.get("DEBUG", False)): print(f"Ignoring sensor reading for chamber \"{col[1]}\"")
+                            if (settings.get("DEBUG", False)): self._print(f"Ignoring sensor reading for chamber \"{col[1]}\"")
                             return
                         if self.last_readings.get(col[1], None) is not None:
                             self.last_readings[col[1]]["reading"] = col[2]
@@ -113,17 +125,19 @@ class SerialMonitor:
                         with open(file_path, mode='a', newline='', encoding='utf-8') as file:
                             writer = csv.writer(file)
                             writer.writerow(col)
-                        print(f"Data appended to {file_path}")
+                        self._print(f"Data appended to {file_path}")
                     else:
-                        print(f"Sensor reading(s) recived for chamber \"{col[1]}\" but chamber is uninitialized:\n\t{data}")
+                        self._print(f"Sensor reading(s) received for chamber \"{col[1]}\" but chamber is uninitialized:\n\t{data}")
                 case "##ALERT":
+                    if len(col) < 3:
+                        return
                     # check chamber has been added by control system
                     if self.last_readings.get(col[1], None) is not None:
                         self.last_readings[col[1]]["alert"] = col[2]
                         send_discord_alert_webhook(col[1], col[2])
                     else:
                         if settings.get("DEBUG", False):
-                            print(f"Alert received for chamber \"{col[1]}\" but chamber is uninitialized:\n\t{data}")
+                            self._print(f"Alert received for chamber \"{col[1]}\" but chamber is uninitialized:\n\t{data}")
                             send_discord_alert_webhook(col[1], col[2])
 
     def start_monitoring(self, monitor_interval: int = 2):
@@ -170,11 +184,11 @@ class SerialMonitor:
             try:
                 with serial.Serial(port.device, baudrate=baudrate, timeout=timeout) as ser:
                     ser.write(message.encode('utf-8'))
-                    print(f"Sent to {port.device}")
+                    self._print(f"Sent to {port.device}")
             except serial.SerialException as e:
-                print(f"Failed to send to {port.device}: {e}")
+                self._print(f"Failed to send to {port.device}: {e}")
         if settings.get("DEBUG", False):
-            print(f"Sent \"{message}\" to all serial ports")
+            self._print(f"Sent \"{message}\" to all serial ports")
 
     def _monitor_ports(self, monitor_interval=2):
         # Scan for ports only while monitoring is active
@@ -203,7 +217,7 @@ class SerialMonitor:
 
 
 def main() -> int:
-    monitor = SerialMonitor(baud_rate=None, print_msgs=False, save_data=True, log_uninitialized_chambers=True)
+    monitor = SerialMonitor(baud_rate=None, print_msgs=True, save_data=True, log_uninitialized_chambers=True)
     try:
         print("Starting Serial Monitor. Press Ctrl+C to stop.")
         monitor.start_monitoring()
