@@ -22,11 +22,23 @@ source .venv/bin/activate
 pip install . 
 sudo usermod -aG adm $USER
 sudo usermod -a -G dialout "$USER"
-sudo groupadd --system gpio
+getent group gpio > /dev/null || sudo groupadd --system gpio
 sudo usermod -aG gpio "$USER"
 
 echo 'KERNEL=="gpiomem", GROUP="gpio", MODE="0660"' \
   | sudo tee /etc/udev/rules.d/99-gpio.rules
+
+# Create persistent naming rules for USB serial devices
+echo '# USB Serial Device Naming Rules' \
+  | sudo tee /etc/udev/rules.d/99-usb-serial.rules
+echo 'SUBSYSTEMS=="usb", KERNEL=="tty*", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="ttyUSB_CH340_%s{serial}"' \
+  | sudo tee -a /etc/udev/rules.d/99-usb-serial.rules
+  echo 'SUBSYSTEMS=="usb", KERNEL=="tty*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="ttyUSB_CP2102_%s{serial}"' \
+    | sudo tee -a /etc/udev/rules.d/99-usb-serial.rules
+echo 'SUBSYSTEMS=="usb", KERNEL=="tty*", SYMLINK+="ttyUSB_%s{serial}"' \
+  | sudo tee -a /etc/udev/rules.d/99-usb-serial.rules
+
+# Reload and trigger udev rules
 sudo udevadm control --reload --reload-rules && sudo udevadm trigger
 
 echo "Setting up pigpio for hardware PWM..."
