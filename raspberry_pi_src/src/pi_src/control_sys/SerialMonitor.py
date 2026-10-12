@@ -2,6 +2,7 @@ import serial
 import threading
 import time
 import csv
+import os
 from typing import Optional
 from serial.tools import list_ports
 from ..config.config_manager import settings
@@ -27,6 +28,8 @@ class SerialMonitor:
 
         # port_name -> Thread
         self.active_ports = {}
+        # Canonical device name -> open connection, shared by reader and sender.
+        self.connections = {}
         self.lock = threading.Lock()
         self.print_lock = threading.Lock()
         self.running = False
@@ -41,7 +44,9 @@ class SerialMonitor:
     def read_from_port(self, port_name):
         ser = None
         try:
-            ser = serial.Serial(port_name, self.baud_rate, timeout=1.0)
+            options = {"exclusive": True} if os.name == "posix" else {}
+            ser = serial.Serial(port_name, self.baud_rate, timeout=1.0,
+                                write_timeout=1.0, **options)
         except serial.SerialException as e:
             self._print(f"Could not open {port_name}: {e}")
             # Make sure this port is not considered active
@@ -50,6 +55,8 @@ class SerialMonitor:
             return
 
         try:
+            with self.lock:
+                self.connections[port_name] = ser
             self._print(f"Started listening on {port_name}")
             # Clear any stale data in the buffer
             try:
@@ -70,17 +77,23 @@ class SerialMonitor:
                 except Exception:
                     continue
                 if line:
-                    self.parse_serial_msg(line, port_name)
+                    try:
+                        self.parse_serial_msg(line, port_name)
+                    except Exception as e:
+                        # A CSV/alert failure must not reopen/reset a healthy device.
+                        self._print(f"Could not process message from {port_name}: {e}")
                     
         except Exception as e:
             self._print(f"Error on {port_name}: {e}")
         finally:
-            try:
-                if ser is not None and ser.is_open:
-                    ser.close()
-            except Exception:
-                pass
+            # Serialize closing against command writes to this connection.
             with self.lock:
+                self.connections.pop(port_name, None)
+                try:
+                    if ser is not None and ser.is_open:
+                        ser.close()
+                except Exception:
+                    pass
                 self.active_ports.pop(port_name, None)
             self._print(f"Stopped listening on {port_name}")
 
@@ -88,10 +101,15 @@ class SerialMonitor:
         if self.print_msgs:
             source = f"[{port_name}] " if port_name else ""
             self._print(f"{source}{data}")
+        elif not data.startswith(("##READING,", "##PRESSURE,")):
+            # Keep sensor errors and boot diagnostics visible in chamber mode.
+            self._print(f"[{port_name or 'serial'}] {data}")
         # save to appropriate CSV based off of message
         if self.save_data:
             # Split the string into a list (assuming comma separated values)
             col = data.split(',')
+            # Firmware alerts/pressure messages can have spaces after commas.
+            col = [field.strip() for field in col]
             if not col:
                 return
 
@@ -171,6 +189,10 @@ class SerialMonitor:
         """
         Sends a string message to all available serial ports.
 
+        During monitoring, sends through the existing open connections only.
+        Commands to devices that are not yet connected are not queued. The
+        baudrate/timeout arguments apply to standalone sends, when stopped.
+
         Parameters:
             message (`str`):
             The message to send.
@@ -179,21 +201,42 @@ class SerialMonitor:
             timeout (`float`):
             Timeout for opening the serial port.
         """
-        ports = list_ports.comports()
+        if self.running:
+            # Opening another handle can steal data and toggle reset lines.
+            with self.lock:
+                if not self.connections:
+                    self._print("No open serial connections; command was not sent")
+                for port_name, ser in self.connections.items():
+                    try:
+                        ser.write(message.encode('utf-8'))
+                        self._print(f"Sent to {port_name}")
+                    except (serial.SerialException, OSError) as e:
+                        self._print(f"Failed to send to {port_name}: {e}")
+            return
+
+        ports = self._available_ports()
         for port in ports:
             try:
-                with serial.Serial(port.device, baudrate=baudrate, timeout=timeout) as ser:
+                options = {"exclusive": True} if os.name == "posix" else {}
+                with serial.Serial(port, baudrate=baudrate, timeout=timeout,
+                                   write_timeout=timeout, **options) as ser:
                     ser.write(message.encode('utf-8'))
-                    self._print(f"Sent to {port.device}")
+                    self._print(f"Sent to {port}")
             except serial.SerialException as e:
-                self._print(f"Failed to send to {port.device}: {e}")
+                self._print(f"Failed to send to {port}: {e}")
         if settings.get("DEBUG", False):
             self._print(f"Sent \"{message}\" to all serial ports")
+
+    def _available_ports(self):
+        # udev aliases such as /dev/ttyUSB_ also match pySerial's Linux glob.
+        # Key by the resolved path so aliases cannot create competing readers.
+        return sorted({os.path.realpath(port.device) if os.name == "posix" else port.device
+                       for port in list_ports.comports()})
 
     def _monitor_ports(self, monitor_interval=2):
         # Scan for ports only while monitoring is active
         while self.running:
-            ports = [port.device for port in list_ports.comports()]
+            ports = self._available_ports()
 
             with self.lock:
                 if not self.running:

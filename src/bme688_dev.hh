@@ -190,12 +190,14 @@ bool bme68x_read_gas_sensors(float *avg_gas_res, float &avg_pressure) {
                         sample_collected = true;
                     }
                     else if (fail_count >= 10) {
+                        Serial.printf("##ALERT,%s,BME688 sensor %u profile %u fetch failed\r\n",
+                                      CHAMBER_NAME, sensor, profile);
                         return false;
                     }
                     else {
                         DEBUG_PRINT("Failed to fetch data for sensor " + String(sensor) + 
                                     " during profile " + String(profile));
-                        delay(0.25);
+                        delay(25);
                         fail_count++;
                     }
                 } while (!sample_collected);
@@ -360,6 +362,9 @@ void pressure_logger_task(void *pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(sens_delay/1000));
       }
     }
+    // Yield even when every pressure sensor returns no data. Otherwise a
+    // failed sensor/bus can keep the idle task from feeding the watchdog.
+    vTaskDelay(1);
   }
 }
 
