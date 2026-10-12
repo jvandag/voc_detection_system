@@ -47,17 +47,43 @@ void scd4x_init() {
     scd4x.setAutomaticSelfCalibrationEnabled(false);
 }
 
+bool scd4x_read_single_shot(uint16_t &co2_ppm, float &temp_cel, float &rel_hum) {
+  // The library command already waits 5 seconds for measurement. Its
+  // convenience read helper polls forever if data-ready never becomes true.
+  if (call_and_check_error(scd4x.measureSingleShot(), "measureSingleShot()") != NO_ERROR) {
+    return false;
+  }
+  unsigned long ready_start = millis();
+  bool ready = false;
+  do {
+    if (call_and_check_error(scd4x.getDataReadyStatus(ready), "getDataReadyStatus()") != NO_ERROR) {
+      return false;
+    }
+    if (ready) {
+      return call_and_check_error(scd4x.readMeasurement(co2_ppm, temp_cel, rel_hum),
+                                  "readMeasurement()") == NO_ERROR;
+    }
+    delay(100);
+  } while (millis() - ready_start < 2000UL);
+  Serial.printf("##ALERT,%s,SCD4x data-ready timed out\r\n", CHAMBER_NAME);
+  return false;
+}
+
 bool scd4x_single_shot_avg(uint16_t &co2_ppm, float &temp_cel, float &rel_hum) {
   // Take 3 shots back-to-back and average
-  uint16_t c1, c2, c3;
-  float t1, t2, t3, h1, h2, h3;
+  uint16_t c1 = 0, c2 = 0, c3 = 0;
+  float t1 = 0, t2 = 0, t3 = 0, h1 = 0, h2 = 0, h3 = 0;
 
   // Discard first reading
-  scd4x.measureSingleShot();
+  if (call_and_check_error(scd4x.measureSingleShot(), "measureSingleShot()") != NO_ERROR) {
+    return false;
+  }
   
-  call_and_check_error(scd4x.measureAndReadSingleShot(c1, t1, h1), "measureAndReadSingleShot()");
-  call_and_check_error(scd4x.measureAndReadSingleShot(c2, t2, h2), "measureAndReadSingleShot()");
-  call_and_check_error(scd4x.measureAndReadSingleShot(c3, t3, h3), "measureAndReadSingleShot()");
+  if (!scd4x_read_single_shot(c1, t1, h1) ||
+      !scd4x_read_single_shot(c2, t2, h2) ||
+      !scd4x_read_single_shot(c3, t3, h3)) {
+    return false;
+  }
   co2_ppm  = (c1 + c2 + c3) / 3;
   temp_cel = (t1 + t2 + t3) / 3;
   rel_hum  = (h1 + h2 + h3) / 3;

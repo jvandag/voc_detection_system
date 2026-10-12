@@ -4,6 +4,7 @@
 #include "scd4x.hh"
 #include "as7341.hh"
 #include <Esp.h>
+#include <esp_system.h>
 
 #include "feather_v2_config.hh"
 
@@ -15,6 +16,8 @@ void setup(void) {
   while (!Serial) {
       delay(100);
   }
+  Serial.printf("##DIAG,%s,boot reset_reason=%d\r\n", CHAMBER_NAME,
+                static_cast<int>(esp_reset_reason()));
   SPI.begin(SCK, MISO, MOSI, CS);
   Wire.begin(SDA, SCL, I2C_FREQ);
   Wire.setTimeOut(I2C_TIMEOUT_MS);
@@ -61,14 +64,14 @@ void loop() {
   // AS7341 Variables
   int avg_frequency_vals[10] = {0};
   
-  DEBUG_PRINT("\nReading from BME688 gas sensor...");
+  Serial.printf("##DIAG,%s,reading BME688\r\n", CHAMBER_NAME);
   bool gas_read_success = bme68x_read_gas_sensors(avg_gas_res, avg_pressure);
   if (!gas_read_success) {
     Serial.println("Chamber " + String(CHAMBER_NAME) + " failed to read BME68x.");
   }
   bme68x_sleep_gas_sensors();
 
-  DEBUG_PRINT("\nReading from SCD30 sensor...");
+  Serial.printf("##DIAG,%s,reading SCD30\r\n", CHAMBER_NAME);
   bool scd30_read_success = scd30_averaged_read(scd30_co2_ppm, scd30_temp, scd30_rel_hum);
   if (!scd30_read_success) {
     Serial.println("Chamber " + String(CHAMBER_NAME) + " failed to read SCD30.");
@@ -77,7 +80,7 @@ void loop() {
               "\nTemperature: " + String(scd30_temp) +
               "\nRelative Humidity: " + String(scd30_rel_hum));  
 
-  DEBUG_PRINT("\nReading from SCD4x sensor...");
+  Serial.printf("##DIAG,%s,reading SCD4x\r\n", CHAMBER_NAME);
   bool scd4x_read_success = scd4x_single_shot_avg(scd4x_co2_ppm, scd4x_temp, scd4x_rel_hum);
   if (!scd4x_read_success) {
     Serial.println("Chamber " + String(CHAMBER_NAME) + " failed to read SCD4x.");
@@ -86,7 +89,7 @@ void loop() {
               "\nTemperature: " + String(scd4x_temp) +
               "\nRelative Humidity: " + String(scd4x_rel_hum));
 
-  DEBUG_PRINT("\nReading from AS7341 light sensor...");
+  Serial.printf("##DIAG,%s,reading AS7341\r\n", CHAMBER_NAME);
   bool as7341_read_success = as7341_averaged_read(avg_frequency_vals, 3);
   if (!as7341_read_success) {
     Serial.println("Chamber " + String(CHAMBER_NAME) + " failed to read AS7341.");
@@ -116,6 +119,14 @@ void loop() {
   }
     
   unsigned long loop_time = millis() - loop_start_time;
+  Serial.printf("##DIAG,%s,cycle_ms=%lu BME688=%d SCD30=%d SCD4x=%d AS7341=%d\r\n",
+                CHAMBER_NAME, loop_time, gas_read_success, scd30_read_success,
+                scd4x_read_success, as7341_read_success);
   DEBUG_PRINT("\nLoop Time: " + String(loop_time));
-  delay(SAMPLE_INTERVAL-loop_time);
+  // A slow/failing sensor must not underflow into a multi-week delay.
+  if (loop_time < SAMPLE_INTERVAL) {
+    delay(SAMPLE_INTERVAL - loop_time);
+  } else {
+    delay(1);
+  }
 }

@@ -8,12 +8,14 @@
 #include <Adafruit_AS7341.h>
 
 Adafruit_AS7341 as7341;
+bool as7341_initialized = false;
 
 
 void as7341_init() {
-  if (!as7341.begin()){
+  as7341_initialized = as7341.begin();
+  if (!as7341_initialized){
     Serial.println("##ALERT, " + String(CHAMBER_NAME) + ", Could not find AS7341 during init.");
-    
+    return;
   }
   as7341.setATIME(100);
   as7341.setASTEP(999);
@@ -21,15 +23,19 @@ void as7341_init() {
 }
 
 bool as7341_read_sensor(int (&read_arr)[10]) {
+    if (!as7341_initialized) {
+        return false;
+    }
     DEBUG_PRINT("25 mA LED blink");
     as7341.setLEDCurrent(25);
     as7341.enableLED(true);
     delay(10);
-    if (!as7341.readAllChannels()){
+    bool success = as7341.readAllChannels();
+    as7341.enableLED(false);
+    if (!success){
         Serial.println("##ALERT, " + String(CHAMBER_NAME) + ", Failed to call readAllChannels as7341.");
         return false;
     }
-    as7341.enableLED(false);
     
     read_arr[0] = as7341.getChannel(AS7341_CHANNEL_415nm_F1);
     read_arr[1] = as7341.getChannel(AS7341_CHANNEL_445nm_F2);
