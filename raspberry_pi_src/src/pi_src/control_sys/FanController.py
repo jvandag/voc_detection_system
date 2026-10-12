@@ -81,7 +81,7 @@ class FanController:
             while self.running:
                 temp, state = self.update()
                 off = self.off_thresh if self.off_thresh is not None else self.on_thresh
-                print(f"CPU Temp: {temp:.2f}°C, thresholds on={self.on_thresh:.1f}, off={off:.1f} -> Fan {'ON' if state else 'OFF'}")
+                # print(f"CPU Temp: {temp:.2f}°C, thresholds on={self.on_thresh:.1f}, off={off:.1f} -> Fan {'ON' if state else 'OFF'}")
                 time.sleep(self.poll_rate)
         else:
             GPIO.output(self.fan_pin, GPIO.HIGH)
