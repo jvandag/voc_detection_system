@@ -9,9 +9,9 @@ def main() -> int:
     try:
         control_system = ControlSystem(flush_mode=True)
         chamber_list = {    
-            "1":  {"group": "Test 1", "slot": 1},
-            "2":  {"group": "Test 1", "slot": 2},
-            "3":  {"group": "Test 1", "slot": 3},
+            "LR_T2":  {"group": "Test 1", "slot": 1},
+            "MR_T2":  {"group": "Test 1", "slot": 2},
+            "DR_T2":  {"group": "Test 1", "slot": 3},
             }
         
         print("Adding Chambers")
